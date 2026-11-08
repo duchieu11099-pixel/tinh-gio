@@ -369,7 +369,15 @@ function merge(R){
   return{...S,timers,deleted:del,settings:rs?R.settings:S.settings,settingsAt:Math.max(R.settingsAt||0,S.settingsAt||0),lastRemind:Math.max(R.lastRemind||0,S.lastRemind||0)};
 }
 async function gh(path,opt={}){const r=await fetch('https://api.github.com'+path,{cache:'no-store',...opt,headers:{Authorization:'Bearer '+SY.token,Accept:'application/vnd.github+json',...(opt.body?{'Content-Type':'application/json'}:{})}});
-  if(!r.ok)throw new Error(r.status===401?'token sai hoặc hết hạn':'HTTP '+r.status);return r.json()}
+  if(!r.ok){let m='';try{m=(await r.json()).message||''}catch(e){}
+    const sc=r.headers.get('x-oauth-scopes');
+    let h='HTTP '+r.status+(m?' — '+m:'');
+    if(r.status===401)h='token sai hoặc đã hết hạn';
+    else if(r.status===403&&sc!==null&&!/gist/.test(sc))h='token chưa có quyền gist (hãy tạo lại và tick ô gist)';
+    else if(r.status===403&&/rate limit/i.test(m))h='GitHub đang giới hạn tốc độ, thử lại sau ít phút';
+    else if(r.status===403&&sc===null)h='token này là loại fine-grained nên không dùng được — hãy tạo "Tokens (classic)" và tick gist';
+    const e=new Error(h);e.status=r.status;throw e}
+  return r.json()}
 async function findGist(){for(let pg=1;pg<=5;pg++){const l=await gh('/gists?per_page=100&page='+pg);const g=l.find(g=>g.files[FN]);if(g)return g.id;if(l.length<100)break}
   const g=await gh('/gists',{method:'POST',body:JSON.stringify({description:'Dữ liệu app Tính Giờ (đồng bộ)',public:false,files:{[FN]:{content:'{}'}}})});return g.id}
 const pub=x=>{const{filter,...r}=x;return JSON.stringify(r)};
@@ -380,7 +388,8 @@ async function sync(){
   if(syncing){again=true;return}syncing=true;setSt('⏳ Đang đồng bộ...');
   try{
     if(!SY.gistId){SY.gistId=await findGist();saveSY()}
-    const g=await gh('/gists/'+SY.gistId);const f=g.files[FN];if(!f)throw new Error('không thấy file dữ liệu');
+    let g;try{g=await gh('/gists/'+SY.gistId)}catch(e){if(e.status===404||e.status===403){SY.gistId=await findGist();saveSY();g=await gh('/gists/'+SY.gistId)}else throw e}
+    const f=g.files[FN];if(!f)throw new Error('không thấy file dữ liệu');
     const txt=f.truncated?await(await fetch(f.raw_url,{cache:'no-store'})).text():f.content;
     const R=JSON.parse(txt||'{}');stamp();const M=merge(R);
     S=M;cfg();localStorage.setItem(KEY,JSON.stringify(S));rebuildSnap();
