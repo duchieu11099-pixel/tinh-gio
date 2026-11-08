@@ -48,7 +48,7 @@ input:focus{border-color:var(--pri)}
 .sec.col{cursor:pointer}.sec .arr{margin-left:auto;color:var(--mut);font-size:13px}
 .sec-mile .card{border-color:#f59e0b88}.sec-judge .card{border-color:#f59e0b}.sec-check .card{border-color:#22c55e66}
 .mile{font-size:12px;margin-top:8px;color:#fcd34d}.mile.r{color:#86efac}
-.vbar{display:flex;justify-content:flex-end;gap:6px;margin-top:10px}.vbar .tab.on{background:var(--pri);color:#fff}
+.vbar{display:flex;justify-content:flex-end;gap:6px;margin-top:10px}.tabs .tab.on,.vbar .tab.on{background:var(--pri);color:#fff}
 .card.cp{padding:10px 14px;cursor:pointer}.card.cp .sub,.card.cp .mile,.card.cp .days,.card.cp .acts{display:none}.card.cp .ring{transform:scale(.7);margin:-12px}.card.cp .time{font-size:15px;font-weight:600;color:var(--mut)}.card.cp .name{font-size:15px}
 .card.cpo{cursor:pointer}
 .empty{text-align:center;color:var(--mut);padding:30px}
@@ -304,9 +304,11 @@ function render(){
   const key={mile:t=>{const m=mileInfo(t);return m?m.left:1e18},wait:t=>t.state==='running'?t.endAt-Date.now():1e17+t.left};
   for(const k in key)if(grp[k])grp[k].sort((a,b)=>key[k](a)-key[k](b));
   const gs=G.filter(g=>grp[g[0]]);
-  $('tabs').innerHTML=gs.map(g=>'<div class="tab" data-f="'+g[0]+'">'+g[1].split(' ')[0]+' '+grp[g[0]].length+'</div>').join('');
+  if(FILT!=='all'&&!grp[FILT])FILT='all';
+  $('tabs').innerHTML='<div class="tab'+(FILT==='all'?' on':'')+'" data-f="all">Tất cả '+S.timers.length+'</div>'+gs.map(g=>'<div class="tab'+(FILT===g[0]?' on':'')+'" data-f="'+g[0]+'" title="'+g[1]+'">'+g[1].split(' ')[0]+' '+grp[g[0]].length+'</div>').join('');
+  const shown=FILT==='all'?gs:gs.filter(g=>g[0]===FILT);
   if(!S.timers.length){$('list').innerHTML='<div class="card empty">Chưa có mục nào — nhập tên và thời gian ở trên để bắt đầu</div>';return}
-  $('list').innerHTML=gs.map(([k,title])=>{const col=k==='hist',open=!col||S.histOpen;
+  $('list').innerHTML=shown.map(([k,title])=>{const col=k==='hist'&&FILT==='all',open=!col||S.histOpen;
     return '<div class="sec-'+k+'" id="sec-'+k+'"><div class="sec'+(col?' col" data-tog="1':'')+'">'+title+'<span class="cnt">'+grp[k].length+'</span>'+(col?'<span class="arr">'+(open?'Ẩn ▲':'Xem ▼')+'</span>':'')+'</div>'+(open?grp[k].map(card).join(''):'')+'</div>'}).join('');
 }
 function card(t){{
@@ -343,11 +345,11 @@ function updateLive(){
     const c=el.querySelectorAll('circle')[1],L=2*Math.PI*34;c.setAttribute('stroke-dashoffset',L*(1-Math.min(1,p)))});
 }
 
-let VIEW=localStorage.getItem('tinhgio_view')||'f';const OPEN=new Set();
+let FILT='all';let VIEW=localStorage.getItem('tinhgio_view')||'f';const OPEN=new Set();
 function setView(v){VIEW=v;localStorage.setItem('tinhgio_view',v);OPEN.clear();$('vFull').classList.toggle('on',v==='f');$('vComp').classList.toggle('on',v==='c');render()}
 $('vFull').onclick=()=>setView('f');$('vComp').onclick=()=>setView('c');
 $('addBtn').onclick=add;$('nName').onkeydown=e=>e.key==='Enter'&&add();
-$('tabs').onclick=e=>{const f=e.target.dataset.f;if(f){if(f==='hist'&&!S.histOpen){S.histOpen=true;render()}document.getElementById('sec-'+f)?.scrollIntoView({behavior:'smooth'})}};
+$('tabs').onclick=e=>{const f=e.target.closest('[data-f]')?.dataset.f;if(f){FILT=f;render()}};
 $('list').onclick=e=>{if(e.target.closest('[data-tog]')){S.histOpen=!S.histOpen;localStorage.setItem(KEY,JSON.stringify(S));return render()}const b=e.target.closest('[data-a]');
   if(!b&&VIEW==='c'){const c=e.target.closest('[data-id]');if(c){const id=c.dataset.id;OPEN.has(id)?OPEN.delete(id):OPEN.add(id);return render()}}
   if(b)act(b.closest('[data-id]').dataset.id,b.dataset.a,b.dataset.k)};
