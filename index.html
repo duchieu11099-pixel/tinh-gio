@@ -75,7 +75,7 @@ input:focus{border-color:var(--pri)}
 
   <div class="card">
     <div class="add">
-      <div class="nm"><div class="lbl">Tên</div><input id="nName" placeholder="VD: Học tiếng Anh"></div>
+      <div class="nm"><div class="lbl">Tên</div><input id="nName" type="text" autocomplete="off" placeholder="VD: Học tiếng Anh"></div>
       <div><div class="lbl">Giờ</div><input id="nH" type="number" min="0" value="0"></div>
       <div><div class="lbl">Phút</div><input id="nM" type="number" min="0" value="0"></div>
       <div><div class="lbl">Giây</div><input id="nS" type="number" min="0" value="0"></div>
@@ -295,6 +295,8 @@ function render(){
     ['check','📋 Điểm danh',t=>t.state==='success'&&!t.streakDone],
     ['hist','🗂 Lịch sử',t=>t.state==='failed'||t.streakDone]];
   const grp={};S.timers.forEach(t=>{const g=G.find(g=>g[2](t));if(g)(grp[g[0]]=grp[g[0]]||[]).push(t)});
+  const key={mile:t=>{const m=mileInfo(t);return m?m.left:1e18},wait:t=>t.state==='running'?t.endAt-Date.now():1e17+t.left};
+  for(const k in key)if(grp[k])grp[k].sort((a,b)=>key[k](a)-key[k](b));
   const gs=G.filter(g=>grp[g[0]]);
   $('tabs').innerHTML=gs.map(g=>'<div class="tab" data-f="'+g[0]+'">'+g[1].split(' ')[0]+' '+grp[g[0]].length+'</div>').join('');
   if(!S.timers.length){$('list').innerHTML='<div class="card empty">Chưa có mục nào — nhập tên và thời gian ở trên để bắt đầu</div>';return}
