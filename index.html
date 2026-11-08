@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>Tính Giờ</title>
+<style>
+:root{--bg:#0b1020;--card:#151c33;--card2:#1c2545;--txt:#e8ecf8;--mut:#8b95b5;--pri:#7c5cff;--pri2:#22d3ee;--ok:#22c55e;--bad:#ef4444;--warn:#f59e0b;--r:18px}
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{background:radial-gradient(circle at 20% 0%,#2a1f5c 0,transparent 50%),radial-gradient(circle at 100% 30%,#0e3b4a 0,transparent 45%),var(--bg);color:var(--txt);min-height:100vh;padding:env(safe-area-inset-top) 0 40px}
+.wrap{max-width:720px;margin:auto;padding:20px 16px}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+h1{font-size:26px;background:linear-gradient(90deg,var(--pri),var(--pri2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.ibtn{background:var(--card);border:1px solid #2a3560;color:var(--txt);border-radius:12px;padding:9px 12px;cursor:pointer;font-size:15px}
+.card{background:linear-gradient(160deg,var(--card),var(--card2));border:1px solid #273158;border-radius:var(--r);padding:16px;margin-bottom:14px;box-shadow:0 10px 30px #0006}
+.add{display:grid;grid-template-columns:1fr 70px 70px 70px;gap:8px}
+.add input{width:100%}
+input,select{background:#0e1430;border:1px solid #2a3560;color:var(--txt);border-radius:12px;padding:12px;font-size:15px;outline:none}
+input:focus{border-color:var(--pri)}
+.btn{border:0;border-radius:12px;padding:11px 16px;font-weight:600;cursor:pointer;color:#fff;background:linear-gradient(90deg,var(--pri),#5b8cff);font-size:15px}
+.btn.full{width:100%;margin-top:10px}
+.btn.ok{background:var(--ok)}.btn.bad{background:var(--bad)}.btn.gh{background:#26305a}
+.lbl{font-size:12px;color:var(--mut);margin:4px 0}
+.tabs{display:flex;gap:6px;margin:6px 0 14px;overflow-x:auto}
+.tab{padding:8px 14px;border-radius:999px;background:var(--card);border:1px solid #2a3560;color:var(--mut);cursor:pointer;white-space:nowrap;font-size:14px}
+.tab.on{color:#fff;background:var(--pri);border-color:var(--pri)}
+.timer{display:flex;gap:14px;align-items:center}
+.ring{width:78px;height:78px;flex:none;position:relative}
+.ring svg{transform:rotate(-90deg)}
+.ring span{position:absolute;inset:0;display:grid;place-items:center;font-size:13px;font-weight:700}
+.info{flex:1;min-width:0}
+.name{font-size:17px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.time{font-size:24px;font-variant-numeric:tabular-nums;font-weight:700;margin:2px 0}
+.sub{font-size:12px;color:var(--mut)}
+.acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.acts .btn{padding:8px 12px;font-size:13px}
+.badge{display:inline-block;font-size:11px;padding:3px 8px;border-radius:999px;margin-left:6px;vertical-align:middle}
+.b-run{background:#1d4ed855;color:#93c5fd}.b-done{background:#f59e0b33;color:#fcd34d}.b-ok{background:#22c55e33;color:#86efac}.b-bad{background:#ef444433;color:#fca5a5}.b-pause{background:#64748b44;color:#cbd5e1}
+.days{display:flex;gap:6px;margin-top:10px}
+.day{flex:1;text-align:center;padding:8px 0;border-radius:10px;background:#0e1430;border:1px solid #2a3560;font-size:12px}
+.day.d{background:#22c55e33;border-color:var(--ok)}.day.m{background:#ef444433;border-color:var(--bad)}.day.t{border-color:var(--warn);box-shadow:0 0 0 2px #f59e0b55}
+.empty{text-align:center;color:var(--mut);padding:30px}
+.modal{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;padding:16px;z-index:9}
+.modal.show{display:flex}
+.modal .card{width:100%;max-width:420px;animation:pop .2s}
+@keyframes pop{from{transform:scale(.9);opacity:0}}
+.row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #273158;gap:10px}
+.chk{display:flex;gap:10px;align-items:center;margin-top:14px;padding:12px;border-radius:12px;background:#f59e0b1a;border:1px solid #f59e0b55;font-size:14px}
+.chk input{width:20px;height:20px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--card2);border:1px solid var(--pri);padding:12px 18px;border-radius:12px;opacity:0;transition:.3s;pointer-events:none;z-index:10}
+.toast.show{opacity:1}
+.pulse{animation:pl 1.2s infinite}@keyframes pl{50%{box-shadow:0 0 0 6px #f59e0b33}}
+@media(max-width:480px){.add{grid-template-columns:1fr 1fr 1fr}.add .nm{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>⏱ Tính Giờ</h1>
+    <div style="display:flex;gap:6px">
+      <button class="ibtn" id="notifBtn" title="Bật thông báo">🔔</button>
+      <button class="ibtn" id="setBtn" title="Cài đặt">⚙️</button>
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="add">
+      <div class="nm"><div class="lbl">Tên</div><input id="nName" placeholder="VD: Học tiếng Anh"></div>
+      <div><div class="lbl">Giờ</div><input id="nH" type="number" min="0" value="0"></div>
+      <div><div class="lbl">Phút</div><input id="nM" type="number" min="0" value="25"></div>
+      <div><div class="lbl">Giây</div><input id="nS" type="number" min="0" value="0"></div>
+    </div>
+    <button class="btn full" id="addBtn">＋ Thêm & bắt đầu</button>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+  <div id="list"></div>
+</div>
+
+<div class="modal" id="setModal"><div class="card">
+  <h3 style="margin-bottom:8px">⚙️ Cài đặt</h3>
+  <div class="row"><span>Âm thanh khi hết giờ</span><input type="checkbox" id="sSound"></div>
+  <div class="row"><span>Rung (điện thoại)</span><input type="checkbox" id="sVib"></div>
+  <div class="row"><span>Nhắc trước khi hết (phút)</span><input type="number" id="sWarn" min="0" style="width:80px"></div>
+  <div class="row"><span>Giờ nhắc điểm danh</span><input type="time" id="sCheckTime"></div>
+  <label class="chk"><input type="checkbox" id="sConfirm"> Tôi xác nhận đã hoàn thành việc thay đổi cài đặt</label>
+  <div style="display:flex;gap:8px;margin-top:12px">
+    <button class="btn gh" style="flex:1" id="sCancel">Huỷ</button>
+    <button class="btn" style="flex:1" id="sSave">Lưu</button>
+  </div>
+</div></div>
+
+<div class="modal" id="resModal"><div class="card">
+  <h3 id="resTitle">Đã hết giờ!</h3>
+  <p class="sub" style="margin:8px 0 14px">Bạn đã hoàn thành mục tiêu này chưa? Nếu thành công, bạn sẽ phải điểm danh trong 5 ngày tiếp theo.</p>
+  <div style="display:flex;gap:8px">
+    <button class="btn bad" style="flex:1" id="resBad">✗ Thất bại</button>
+    <button class="btn ok" style="flex:1" id="resOk">✓ Thành công</button>
+  </div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const KEY='tinhgio_v1', DAY=864e5;
+const $=id=>document.getElementById(id);
+let S=load();
+function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d)return d}catch(e){}
+  return{timers:[],settings:{sound:true,vib:true,warn:0,checkTime:'20:00'},filter:'all'}}
+function save(){localStorage.setItem(KEY,JSON.stringify(S))}
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const today=()=>{const d=new Date();d.setHours(0,0,0,0);return d.getTime()};
+const fmt=ms=>{ms=Math.max(0,Math.ceil(ms/1000));const h=Math.floor(ms/3600),m=Math.floor(ms%3600/60),s=ms%60;return(h?h+':':'')+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')};
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// Thời gian dựa trên mốc timestamp -> vẫn chạy đúng kể cả khi tắt app
+function remaining(t){if(t.state==='running')return t.endAt-Date.now();if(t.state==='paused')return t.left;return 0}
+
+function toast(m){const e=$('toast');e.textContent=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2500)}
+
+async function notify(title,body,tag){
+  const s=S.settings;
+  if(s.vib&&navigator.vibrate)navigator.vibrate([300,100,300]);
+  if(s.sound)beep();
+  if('Notification'in window&&Notification.permission==='granted'){
+    try{const r=await navigator.serviceWorker?.ready;if(r){r.showNotification(title,{body,tag,icon:'icon.svg',badge:'icon.svg',requireInteraction:true,vibrate:[300,100,300]});return}}catch(e){}
+    new Notification(title,{body,tag});
+  }else toast(title+' — '+body);
+}
+function beep(){try{const a=new(window.AudioContext||window.webkitAudioContext)();[0,.35,.7].forEach(t=>{const o=a.createOscillator(),g=a.createGain();o.frequency.value=880;o.connect(g);g.connect(a.destination);g.gain.setValueAtTime(.3,a.currentTime+t);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+t+.3);o.start(a.currentTime+t);o.stop(a.currentTime+t+.3)})}catch(e){}}
+
+// Lên lịch thông báo hệ thống (Chrome Android/desktop hỗ trợ Notification Triggers) — dự phòng khi app đóng
+async function schedule(t){
+  try{const r=await navigator.serviceWorker?.ready;if(!r||!('TimestampTrigger'in window)||Notification.permission!=='granted')return;
+    r.showNotification('⏰ '+t.name+' đã hết giờ!',{tag:'t'+t.id,body:'Mở app để đánh dấu thành công/thất bại',showTrigger:new TimestampTrigger(t.endAt),icon:'icon.svg'})}catch(e){}
+}
+async function unschedule(t){try{const r=await navigator.serviceWorker?.ready;const ns=await r.getNotifications({tag:'t'+t.id,includeTriggered:true});ns.forEach(n=>n.close())}catch(e){}}
+
+function tick(){
+  let changed=false;const now=Date.now();
+  S.timers.forEach(t=>{
+    if(t.state==='running'){
+      const left=t.endAt-now, w=S.settings.warn*6e4;
+      if(w>0&&!t.warned&&left<=w&&left>0){t.warned=true;changed=true;notify('⏳ Sắp hết giờ',t.name+' còn '+S.settings.warn+' phút','w'+t.id)}
+      if(left<=0){t.state='done';t.doneAt=t.endAt;changed=true;notify('⏰ '+t.name+' đã hết giờ!','Hãy đánh dấu thành công hoặc thất bại','t'+t.id)}
+    }
+    if(t.state==='success'){ // đánh dấu ngày bị bỏ lỡ
+      t.checkins.forEach((c,i)=>{if(c===null&&t.checkStart+(i+1)*DAY<=today()){t.checkins[i]=false;changed=true}});
+      if(t.checkins.every(c=>c!==null)&&!t.streakDone){t.streakDone=true;changed=true}
+    }
+  });
+  checkReminder();
+  if(changed){save();render();askResult()}else updateLive();
+}
+
+function checkReminder(){
+  const[h,m]=S.settings.checkTime.split(':').map(Number);const d=new Date();
+  if(d.getHours()*60+d.getMinutes()<h*60+m)return;
+  const k=today();if(S.lastRemind===k)return;
+  const pend=S.timers.filter(t=>t.state==='success'&&dayIdx(t)>=0&&t.checkins[dayIdx(t)]===null);
+  if(pend.length){S.lastRemind=k;save();notify('📋 Nhớ điểm danh hôm nay!',pend.map(t=>t.name).join(', '),'remind')}
+}
+function dayIdx(t){const i=Math.floor((today()-t.checkStart)/DAY);return i>=0&&i<5?i:-1}
+
+function add(){
+  const name=$('nName').value.trim();const ms=((+$('nH').value||0)*3600+(+$('nM').value||0)*60+(+$('nS').value||0))*1000;
+  if(!name)return toast('Hãy nhập tên');if(ms<=0)return toast('Thời gian phải > 0');
+  const t={id:uid(),name,dur:ms,state:'running',endAt:Date.now()+ms,created:Date.now()};
+  S.timers.unshift(t);save();schedule(t);$('nName').value='';render();toast('Đã bắt đầu: '+name);
+}
+function act(id,a){
+  const t=S.timers.find(x=>x.id===id);if(!t)return;
+  if(a==='pause'){t.left=t.endAt-Date.now();t.state='paused';unschedule(t)}
+  else if(a==='resume'){t.endAt=Date.now()+t.left;t.state='running';schedule(t)}
+  else if(a==='reset'){t.state='running';t.endAt=Date.now()+t.dur;t.warned=false;delete t.result;delete t.checkins;delete t.streakDone;schedule(t)}
+  else if(a==='del'){if(!confirm('Xoá "'+t.name+'"?'))return;unschedule(t);S.timers=S.timers.filter(x=>x!==t)}
+  else if(a==='finish'){t.state='done';t.doneAt=Date.now();unschedule(t);save();render();return askResult(t)}
+  else if(a==='check'){const i=dayIdx(t);if(i<0||t.checkins[i]!==null)return;t.checkins[i]=true;toast('✅ Đã điểm danh ngày '+(i+1)+'/5');
+    if(t.checkins.every(c=>c!==null))t.streakDone=true}
+  else if(a==='judge')return askResult(t);
+  save();render();
+}
+let judging=null;
+function askResult(t){
+  if(!t)t=S.timers.find(x=>x.state==='done');if(!t||$('resModal').classList.contains('show'))return;
+  judging=t;$('resTitle').textContent='⏰ "'+t.name+'" đã hết giờ!';$('resModal').classList.add('show');
+}
+function judge(ok){
+  const t=judging;if(!t)return;$('resModal').classList.remove('show');
+  if(ok){t.state='success';t.checkStart=today()+DAY;t.checkins=[null,null,null,null,null];toast('🎉 Thành công! Hãy điểm danh 5 ngày tới')}
+  else{t.state='failed';toast('Đã ghi nhận thất bại')}
+  judging=null;save();render();setTimeout(askResult,300);
+}
+
+function ring(p,c){const r=34,L=2*Math.PI*r;return`<svg width="78" height="78"><circle cx="39" cy="39" r="${r}" stroke="#26305a" stroke-width="7" fill="none"/><circle cx="39" cy="39" r="${r}" stroke="${c}" stroke-width="7" fill="none" stroke-linecap="round" stroke-dasharray="${L}" stroke-dashoffset="${L*(1-p)}"/></svg>`}
+
+function render(){
+  const F=[['all','Tất cả'],['active','Đang chạy'],['success','Điểm danh'],['ended','Lịch sử']];
+  $('tabs').innerHTML=F.map(([k,v])=>`<div class="tab ${S.filter===k?'on':''}" data-f="${k}">${v}</div>`).join('');
+  const ts=S.timers.filter(t=>S.filter==='all'||(S.filter==='active'&&['running','paused','done'].includes(t.state))||(S.filter==='success'&&t.state==='success'&&!t.streakDone)||(S.filter==='ended'&&(t.state==='failed'||t.streakDone)));
+  if(!ts.length){$('list').innerHTML='<div class="card empty">Chưa có mục nào</div>';return}
+  $('list').innerHTML=ts.map(t=>{
+    const left=remaining(t),p=t.state==='running'||t.state==='paused'?1-left/t.dur:1;
+    let badge,acts='',extra='',col='var(--pri)';
+    if(t.state==='running'){badge='<span class="badge b-run">Đang chạy</span>';acts=`<button class="btn gh" data-a="pause">⏸ Tạm dừng</button><button class="btn gh" data-a="finish">⏹ Kết thúc sớm</button>`}
+    else if(t.state==='paused'){badge='<span class="badge b-pause">Tạm dừng</span>';col='#64748b';acts=`<button class="btn" data-a="resume">▶ Tiếp tục</button>`}
+    else if(t.state==='done'){badge='<span class="badge b-done">Hết giờ</span>';col='var(--warn)';acts=`<button class="btn ok" data-a="judge">Đánh giá kết quả</button>`}
+    else if(t.state==='failed'){badge='<span class="badge b-bad">Thất bại</span>';col='var(--bad)';acts=`<button class="btn gh" data-a="reset">↻ Làm lại</button>`}
+    else if(t.state==='success'){
+      const i=dayIdx(t),done=t.checkins.filter(c=>c).length;col='var(--ok)';
+      badge=t.streakDone?`<span class="badge b-ok">Hoàn tất ${done}/5</span>`:'<span class="badge b-ok">Thành công</span>';
+      extra='<div class="days">'+t.checkins.map((c,k)=>{const dt=new Date(t.checkStart+k*DAY);return`<div class="day ${c===true?'d':c===false?'m':''} ${k===i?'t':''}">${c===true?'✓':c===false?'✗':'○'}<br>${dt.getDate()}/${dt.getMonth()+1}</div>`}).join('')+'</div>';
+      if(i>=0&&t.checkins[i]===null)acts=`<button class="btn ok pulse" data-a="check">✅ Điểm danh hôm nay (ngày ${i+1}/5)</button>`;
+      else if(i<0&&!t.streakDone)extra+=`<div class="sub" style="margin-top:6px">Điểm danh bắt đầu từ ngày mai</div>`;
+      else if(!t.streakDone)extra+=`<div class="sub" style="margin-top:6px">Hôm nay đã điểm danh ✓</div>`;
+      acts+=`<button class="btn gh" data-a="reset">↻ Làm lại</button>`;
+    }
+    acts+=`<button class="btn gh" data-a="del">🗑</button>`;
+    const pct=Math.round(p*100);
+    return`<div class="card" data-id="${t.id}"><div class="timer"><div class="ring">${ring(p,col)}<span data-pct>${pct}%</span></div>
+      <div class="info"><div class="name">${esc(t.name)}${badge}</div>
+      <div class="time" data-left>${t.state==='running'||t.state==='paused'?fmt(left):fmt(t.dur)}</div>
+      <div class="sub">Mục tiêu ${fmt(t.dur)}${t.state==='running'?' · xong lúc '+new Date(t.endAt).toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'}):''}</div></div></div>
+      ${extra}<div class="acts">${acts}</div></div>`}).join('');
+}
+function updateLive(){
+  document.querySelectorAll('[data-id]').forEach(el=>{const t=S.timers.find(x=>x.id===el.dataset.id);if(!t||t.state!=='running')return;
+    const left=remaining(t),p=1-left/t.dur;el.querySelector('[data-left]').textContent=fmt(left);el.querySelector('[data-pct]').textContent=Math.round(p*100)+'%';
+    const c=el.querySelectorAll('circle')[1],L=2*Math.PI*34;c.setAttribute('stroke-dashoffset',L*(1-p))});
+}
+
+$('addBtn').onclick=add;$('nName').onkeydown=e=>e.key==='Enter'&&add();
+$('tabs').onclick=e=>{const f=e.target.dataset.f;if(f){S.filter=f;save();render()}};
+$('list').onclick=e=>{const b=e.target.closest('[data-a]');if(b)act(b.closest('[data-id]').dataset.id,b.dataset.a)};
+$('resOk').onclick=()=>judge(true);$('resBad').onclick=()=>judge(false);
+
+// Cài đặt — bắt buộc tick xác nhận hoàn thành trước khi lưu
+$('setBtn').onclick=()=>{const s=S.settings;$('sSound').checked=s.sound;$('sVib').checked=s.vib;$('sWarn').value=s.warn;$('sCheckTime').value=s.checkTime;$('sConfirm').checked=false;$('setModal').classList.add('show')};
+$('sCancel').onclick=()=>$('setModal').classList.remove('show');
+$('sSave').onclick=()=>{
+  if(!$('sConfirm').checked){$('sConfirm').parentElement.animate([{transform:'translateX(-6px)'},{transform:'translateX(6px)'},{transform:'none'}],{duration:250});return toast('Hãy tick xác nhận hoàn thành trước khi lưu')}
+  S.settings={sound:$('sSound').checked,vib:$('sVib').checked,warn:Math.max(0,+$('sWarn').value||0),checkTime:$('sCheckTime').value||'20:00'};
+  S.lastSettingsChange=Date.now();save();$('setModal').classList.remove('show');toast('✅ Đã lưu cài đặt');
+};
+$('notifBtn').onclick=async()=>{if(!('Notification'in window))return toast('Thiết bị không hỗ trợ thông báo');
+  const p=await Notification.requestPermission();toast(p==='granted'?'🔔 Đã bật thông báo':'Thông báo bị chặn');if(p==='granted')S.timers.filter(t=>t.state==='running').forEach(schedule)};
+
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+document.addEventListener('visibilitychange',()=>!document.hidden&&tick());
+render();tick();setInterval(tick,500);
+</script>
+</body>
+</html>
