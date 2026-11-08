@@ -62,6 +62,7 @@ input:focus{border-color:var(--pri)}
   <header>
     <h1>⏱ Tính Giờ</h1>
     <div style="display:flex;gap:6px">
+      <button class="ibtn" id="syncBtn" title="Đồng bộ">☁️</button>
       <button class="ibtn" id="notifBtn" title="Bật thông báo">🔔</button>
       <button class="ibtn" id="setBtn" title="Cài đặt">⚙️</button>
     </div>
@@ -104,6 +105,24 @@ input:focus{border-color:var(--pri)}
   </div>
 </div></div>
 
+<div class="modal" id="syncModal"><div class="card">
+  <h3 style="margin-bottom:8px">☁️ Đồng bộ PC ↔ điện thoại</h3>
+  <p class="sub" id="syncSt" style="margin-bottom:10px">Chưa kết nối</p>
+  <div id="syncConn">
+    <p class="sub" style="line-height:1.5">Dữ liệu được lưu vào 1 Gist <b>bí mật</b> trên GitHub của bạn. Làm 1 lần trên <b>mỗi máy</b>:<br>
+    1. <a href="https://github.com/settings/tokens/new?scopes=gist&description=App%20Tinh%20Gio" target="_blank" style="color:var(--pri2)">Bấm vào đây để tạo token</a> (chỉ tick quyền <b>gist</b>, chọn hạn "No expiration") → Generate → copy.<br>
+    2. Dán token vào ô dưới và bấm Kết nối. Có thể dùng cùng 1 token cho mọi máy.</p>
+    <input id="syncTok" type="password" placeholder="ghp_..." style="width:100%;margin-top:10px" autocomplete="off">
+    <button class="btn full" id="syncGo">Kết nối</button>
+  </div>
+  <div id="syncOn" style="display:none">
+    <p class="sub">Tự đồng bộ khi mở app, khi có thay đổi và mỗi 30 giây.</p>
+    <button class="btn full" id="syncNow">↻ Đồng bộ ngay</button>
+    <button class="btn full bad" id="syncOff">Ngắt đồng bộ trên máy này</button>
+  </div>
+  <button class="btn full gh" id="syncClose">Đóng</button>
+</div></div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -113,7 +132,7 @@ let S=load();
 function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d)return d}catch(e){}
   return{timers:[],settings:{sound:true,vib:true,warn:0,checkTime:'20:00'},filter:'all'}}
 function cfg(){S.settings.days=S.settings.days||5}
-function save(){localStorage.setItem(KEY,JSON.stringify(S))}
+function save(){stamp();localStorage.setItem(KEY,JSON.stringify(S));pushSoon()}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const today=()=>{const d=new Date();d.setHours(0,0,0,0);return d.getTime()};
 const fmt=ms=>{ms=Math.max(0,Math.ceil(ms/1000));const h=Math.floor(ms/3600),m=Math.floor(ms%3600/60),s=ms%60;return(h?h+':':'')+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')};
@@ -179,7 +198,7 @@ function act(id,a,arg){
   if(a==='pause'){t.left=t.endAt-Date.now();t.state='paused';unschedule(t)}
   else if(a==='resume'){t.endAt=Date.now()+t.left;t.state='running';schedule(t)}
   else if(a==='reset'){t.state='running';t.endAt=Date.now()+t.dur;t.warned=false;delete t.result;delete t.checkins;delete t.streakDone;schedule(t)}
-  else if(a==='del'){if(!confirm('Xoá "'+t.name+'"?'))return;unschedule(t);S.timers=S.timers.filter(x=>x!==t)}
+  else if(a==='del'){if(!confirm('Xoá "'+t.name+'"?'))return;unschedule(t);S.deleted=S.deleted||{};S.deleted[t.id]=Date.now();S.timers=S.timers.filter(x=>x!==t)}
   else if(a==='finish'){t.state='done';t.doneAt=Date.now();unschedule(t);save();render();return askResult(t)}
   else if(a==='check'){const i=dayIdx(t);if(i<0||t.checkins[i]!==null)return;t.checkins[i]=true;toast('✅ Đã điểm danh ngày '+(i+1)+'/'+t.checkins.length);
     t.streakDone=t.checkins.every(c=>c!==null)}
@@ -251,14 +270,59 @@ $('sCancel').onclick=()=>$('setModal').classList.remove('show');
 $('sSave').onclick=()=>{
   if(!$('sConfirm').checked){$('sConfirm').parentElement.animate([{transform:'translateX(-6px)'},{transform:'translateX(6px)'},{transform:'none'}],{duration:250});return toast('Hãy tick xác nhận hoàn thành trước khi lưu')}
   S.settings={sound:$('sSound').checked,vib:$('sVib').checked,warn:Math.max(0,+$('sWarn').value||0),checkTime:$('sCheckTime').value||'20:00',days:Math.min(60,Math.max(1,parseInt($('sDays').value)||5))};
-  S.lastSettingsChange=Date.now();save();$('setModal').classList.remove('show');toast('✅ Đã lưu cài đặt');
+  S.settingsAt=Date.now();save();$('setModal').classList.remove('show');toast('✅ Đã lưu cài đặt');
 };
 $('notifBtn').onclick=async()=>{if(!('Notification'in window))return toast('Thiết bị không hỗ trợ thông báo');
   const p=await Notification.requestPermission();toast(p==='granted'?'🔔 Đã bật thông báo':'Thông báo bị chặn');if(p==='granted')S.timers.filter(t=>t.state==='running').forEach(schedule)};
 
+
+// ===== Đồng bộ qua GitHub Gist bí mật =====
+const SK='tinhgio_sync',FN='tinhgio-data.json';let SY=JSON.parse(localStorage.getItem(SK)||'{}');
+const saveSY=()=>localStorage.setItem(SK,JSON.stringify(SY));
+let snap={};const sig=t=>JSON.stringify({...t,updated:0});
+function rebuildSnap(){snap={};S.timers.forEach(t=>snap[t.id]=sig(t))}
+function stamp(){S.deleted=S.deleted||{};S.timers.forEach(t=>{const j=sig(t);if(snap[t.id]!==j){t.updated=Date.now();snap[t.id]=sig(t)}})}
+function merge(R){
+  const del={...(R.deleted||{})};for(const k in S.deleted||{})del[k]=Math.max(del[k]||0,S.deleted[k]);
+  for(const k in del)if(del[k]<Date.now()-30*DAY)delete del[k];
+  const m={};[...(R.timers||[]),...S.timers].forEach(t=>{if(!m[t.id]||(t.updated||0)>(m[t.id].updated||0))m[t.id]=t});
+  const timers=Object.values(m).filter(t=>!(del[t.id]>=(t.updated||0))).sort((a,b)=>b.created-a.created);
+  const rs=(R.settingsAt||0)>(S.settingsAt||0);
+  return{...S,timers,deleted:del,settings:rs?R.settings:S.settings,settingsAt:Math.max(R.settingsAt||0,S.settingsAt||0),lastRemind:Math.max(R.lastRemind||0,S.lastRemind||0)};
+}
+async function gh(path,opt={}){const r=await fetch('https://api.github.com'+path,{cache:'no-store',...opt,headers:{Authorization:'Bearer '+SY.token,Accept:'application/vnd.github+json',...(opt.body?{'Content-Type':'application/json'}:{})}});
+  if(!r.ok)throw new Error(r.status===401?'token sai hoặc hết hạn':'HTTP '+r.status);return r.json()}
+async function findGist(){for(let pg=1;pg<=5;pg++){const l=await gh('/gists?per_page=100&page='+pg);const g=l.find(g=>g.files[FN]);if(g)return g.id;if(l.length<100)break}
+  const g=await gh('/gists',{method:'POST',body:JSON.stringify({description:'Dữ liệu app Tính Giờ (đồng bộ)',public:false,files:{[FN]:{content:'{}'}}})});return g.id}
+const pub=x=>{const{filter,...r}=x;return JSON.stringify(r)};
+let syncing=false,again=false,pushT;
+function setSt(m){$('syncSt').textContent=m;$('syncBtn').textContent=SY.token?(m.startsWith('⚠')?'⚠️':'☁️'):'☁️'}
+async function sync(){
+  if(!SY.token)return setSt('Chưa kết nối');if(!navigator.onLine)return setSt('📴 Offline — sẽ đồng bộ khi có mạng');
+  if(syncing){again=true;return}syncing=true;setSt('⏳ Đang đồng bộ...');
+  try{
+    if(!SY.gistId){SY.gistId=await findGist();saveSY()}
+    const g=await gh('/gists/'+SY.gistId);const f=g.files[FN];if(!f)throw new Error('không thấy file dữ liệu');
+    const txt=f.truncated?await(await fetch(f.raw_url,{cache:'no-store'})).text():f.content;
+    const R=JSON.parse(txt||'{}');stamp();const M=merge(R);
+    S=M;cfg();localStorage.setItem(KEY,JSON.stringify(S));rebuildSnap();
+    if(pub(M)!==pub({...R,filter:undefined}))await gh('/gists/'+SY.gistId,{method:'PATCH',body:JSON.stringify({files:{[FN]:{content:pub(M)}}})});
+    SY.last=Date.now();saveSY();setSt('✓ Đã đồng bộ lúc '+new Date().toLocaleTimeString('vi'));render();
+  }catch(e){setSt('⚠️ Lỗi đồng bộ: '+e.message)}
+  syncing=false;if(again){again=false;sync()}
+}
+function pushSoon(){if(!SY.token)return;clearTimeout(pushT);pushT=setTimeout(sync,1500)}
+$('syncBtn').onclick=()=>{$('syncTok').value='';$('syncConn').style.display=SY.token?'none':'block';$('syncOn').style.display=SY.token?'block':'none';$('syncModal').classList.add('show')};
+$('syncClose').onclick=()=>$('syncModal').classList.remove('show');
+$('syncGo').onclick=async()=>{const t=$('syncTok').value.trim();if(!t)return toast('Hãy dán token');SY={token:t};saveSY();await sync();
+  if($('syncSt').textContent.startsWith('✓')){toast('☁️ Đã kết nối đồng bộ');$('syncBtn').click()}else{SY={};saveSY()}};
+$('syncNow').onclick=sync;
+$('syncOff').onclick=()=>{if(!confirm('Ngắt đồng bộ trên máy này? (dữ liệu trên máy và trên GitHub vẫn giữ nguyên)'))return;SY={};saveSY();setSt('Chưa kết nối');$('syncModal').classList.remove('show')};
+addEventListener('online',sync);setInterval(()=>!document.hidden&&sync(),30000);
+
 if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
-document.addEventListener('visibilitychange',()=>!document.hidden&&tick());
-cfg();render();tick();setInterval(tick,500);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){tick();sync()}});
+cfg();rebuildSnap();render();tick();sync();setInterval(tick,500);
 </script>
 </body>
 </html>
