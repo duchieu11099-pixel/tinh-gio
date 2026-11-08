@@ -145,6 +145,7 @@ function save(){stamp();localStorage.setItem(KEY,JSON.stringify(S));pushSoon()}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const today=()=>{const d=new Date();d.setHours(0,0,0,0);return d.getTime()};
 const fmt=ms=>{ms=Math.max(0,Math.ceil(ms/1000));const h=Math.floor(ms/3600),m=Math.floor(ms%3600/60),s=ms%60;return(h?h+':':'')+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')};
+const pctS=p=>{const v=Math.max(0,Math.min(100,p*100));return(v>=100?100:v<1?v.toFixed(2):v<10?v.toFixed(1):Math.floor(v))+'%'};
 const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 // Thời gian dựa trên mốc timestamp -> vẫn chạy đúng kể cả khi tắt app
@@ -291,16 +292,16 @@ function card(t){{
       acts+=`<button class="btn gh" data-a="editdays">✎ Số ngày</button><button class="btn gh" data-a="reset">↻ Làm lại</button>`;
     }
     acts+=`<button class="btn gh" data-a="del">🗑</button>`;
-    const pct=Math.round(p*100);
-    return`<div class="card" data-id="${t.id}"><div class="timer"><div class="ring">${ring(p,col)}<span data-pct>${pct}%</span></div>
+    const pct=pctS(p);
+    return`<div class="card" data-id="${t.id}"><div class="timer"><div class="ring">${ring(p,col)}<span data-pct>${pct}</span></div>
       <div class="info"><div class="name">${esc(t.name)}${badge}</div>
       <div class="time" data-left>${t.state==='running'||t.state==='paused'?fmt(left):fmt(t.dur)}</div>
-      <div class="sub">Mục tiêu ${fmt(t.dur)}${t.state==='running'?' · xong lúc '+new Date(t.endAt).toLocaleString('vi',{hour:'2-digit',minute:'2-digit',...(t.endAt-Date.now()>2e7?{day:'2-digit',month:'2-digit'}:{})}):''}</div></div></div>
+      ${t.state==='running'||t.state==='paused'?`<div class="sub" data-el>Đã chạy ${fmt(t.dur-left)}</div>`:''}<div class="sub">Mục tiêu ${fmt(t.dur)}${t.state==='running'?' · xong lúc '+new Date(t.endAt).toLocaleString('vi',{hour:'2-digit',minute:'2-digit',...(t.endAt-Date.now()>2e7?{day:'2-digit',month:'2-digit'}:{})}):''}</div></div></div>
       ${mileLine(t)}${extra}<div class="acts">${acts}</div></div>`}}
 function mileLine(t){const m=mileInfo(t);if(!m)return'';return m.reached?'<div class="mile r">🏁 Đã qua cột mốc '+S.settings.mileH+' giờ</div>':'<div class="mile" data-mile>🚩 Cột mốc '+S.settings.mileH+' giờ: còn '+fmtH(m.left)+'</div>'}
 function updateLive(){
   document.querySelectorAll('[data-id]').forEach(el=>{const t=S.timers.find(x=>x.id===el.dataset.id);if(!t||t.state!=='running')return;
-    const left=remaining(t),p=1-left/t.dur;el.querySelector('[data-left]').textContent=fmt(left);el.querySelector('[data-pct]').textContent=Math.round(p*100)+'%';
+    const left=remaining(t),p=1-left/t.dur;el.querySelector('[data-left]').textContent=fmt(left);el.querySelector('[data-pct]').textContent=pctS(p);const ee=el.querySelector('[data-el]');if(ee)ee.textContent='Đã chạy '+fmt(t.dur-left);
     const mm=el.querySelector('[data-mile]'),mi=mileInfo(t);if(mm&&mi&&!mi.reached)mm.textContent='🚩 Cột mốc '+S.settings.mileH+' giờ: còn '+fmtH(mi.left);
     const c=el.querySelectorAll('circle')[1],L=2*Math.PI*34;c.setAttribute('stroke-dashoffset',L*(1-p))});
 }
