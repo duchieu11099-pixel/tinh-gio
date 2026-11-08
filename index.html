@@ -77,7 +77,7 @@ input:focus{border-color:var(--pri)}
     <div class="add">
       <div class="nm"><div class="lbl">Tên</div><input id="nName" placeholder="VD: Học tiếng Anh"></div>
       <div><div class="lbl">Giờ</div><input id="nH" type="number" min="0" value="0"></div>
-      <div><div class="lbl">Phút</div><input id="nM" type="number" min="0" value="25"></div>
+      <div><div class="lbl">Phút</div><input id="nM" type="number" min="0" value="0"></div>
       <div><div class="lbl">Giây</div><input id="nS" type="number" min="0" value="0"></div>
     </div>
     <div class="lbl" style="margin-top:8px">Đã làm được (không bắt buộc) — giờ hoặc giờ:phút, vd <b>12</b> hoặc <b>12:30</b></div>
@@ -345,7 +345,7 @@ $('sCancel').onclick=()=>$('setModal').classList.remove('show');
 $('sSave').onclick=()=>{
   if(!$('sConfirm').checked){$('sConfirm').parentElement.animate([{transform:'translateX(-6px)'},{transform:'translateX(6px)'},{transform:'none'}],{duration:250});return toast('Hãy tick xác nhận hoàn thành trước khi lưu')}
   S.settings={sound:$('sSound').checked,vib:$('sVib').checked,warn:Math.max(0,+$('sWarn').value||0),checkTime:$('sCheckTime').value||'20:00',ntfy:S.settings.ntfy,mileH:Math.max(1,+$('sMile').value||130),leadH:Math.max(0,+$('sLead').value||0),days:Math.min(60,Math.max(1,parseInt($('sDays').value)||5))};
-  S.settingsAt=Date.now();S.timers.forEach(t=>{t.mWarned=t.mReached=false;const m=mileInfo(t);if(m&&m.reached)t.mReached=t.mWarned=true;if(m&&m.near)t.mWarned=true;if(t.state==='running')unschedule(t).then(()=>schedule(t))});save();render();$('setModal').classList.remove('show');toast('✅ Đã lưu cài đặt');
+  S.settingsAt=Date.now();$('nH').value=S.settings.mileH;S.timers.forEach(t=>{t.mWarned=t.mReached=false;const m=mileInfo(t);if(m&&m.reached)t.mReached=t.mWarned=true;if(m&&m.near)t.mWarned=true;if(t.state==='running')unschedule(t).then(()=>schedule(t))});save();render();$('setModal').classList.remove('show');toast('✅ Đã lưu cài đặt');
 };
 $('notifBtn').onclick=async()=>{if(!('Notification'in window))return toast('Thiết bị không hỗ trợ thông báo');
   const p=await Notification.requestPermission();toast(p==='granted'?'🔔 Đã bật thông báo':'Thông báo bị chặn');if(p==='granted')S.timers.filter(t=>t.state==='running').forEach(schedule)};
@@ -397,7 +397,7 @@ addEventListener('online',sync);setInterval(()=>!document.hidden&&sync(),30000);
 
 if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tick();sync()}});
-cfg();rebuildSnap();render();tick();sync();setInterval(tick,500);
+cfg();$('nH').value=S.settings.mileH;rebuildSnap();render();tick();sync();setInterval(tick,500);
 </script>
 </body>
 </html>
