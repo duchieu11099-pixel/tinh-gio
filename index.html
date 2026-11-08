@@ -40,9 +40,9 @@ input:focus{border-color:var(--pri)}
 .acts .btn{padding:8px 12px;font-size:13px}
 .badge{display:inline-block;font-size:11px;padding:3px 8px;border-radius:999px;margin-left:6px;vertical-align:middle}
 .b-run{background:#1d4ed855;color:#93c5fd}.b-done{background:#f59e0b33;color:#fcd34d}.b-ok{background:#22c55e33;color:#86efac}.b-bad{background:#ef444433;color:#fca5a5}.b-pause{background:#64748b44;color:#cbd5e1}
-.days{display:flex;gap:6px;margin-top:10px}
-.day{flex:1;text-align:center;padding:8px 0;border-radius:10px;background:#0e1430;border:1px solid #2a3560;font-size:12px}
-.day.d{background:#22c55e33;border-color:var(--ok)}.day.m{background:#ef444433;border-color:var(--bad)}.day.t{border-color:var(--warn);box-shadow:0 0 0 2px #f59e0b55}
+.days{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.day{flex:1 0 52px;cursor:pointer;user-select:none;text-align:center;padding:8px 0;border-radius:10px;background:#0e1430;border:1px solid #2a3560;font-size:12px}
+.day.d{background:#22c55e33;border-color:var(--ok)}.day.m{background:#ef444433;border-color:var(--bad)}.day.f{opacity:.45;cursor:not-allowed}.day.t{border-color:var(--warn);box-shadow:0 0 0 2px #f59e0b55}
 .empty{text-align:center;color:var(--mut);padding:30px}
 .modal{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;padding:16px;z-index:9}
 .modal.show{display:flex}
@@ -86,6 +86,7 @@ input:focus{border-color:var(--pri)}
   <div class="row"><span>Âm thanh khi hết giờ</span><input type="checkbox" id="sSound"></div>
   <div class="row"><span>Rung (điện thoại)</span><input type="checkbox" id="sVib"></div>
   <div class="row"><span>Nhắc trước khi hết (phút)</span><input type="number" id="sWarn" min="0" style="width:80px"></div>
+  <div class="row"><span>Số ngày điểm danh (mặc định)</span><input type="number" id="sDays" min="1" max="60" style="width:80px"></div>
   <div class="row"><span>Giờ nhắc điểm danh</span><input type="time" id="sCheckTime"></div>
   <label class="chk"><input type="checkbox" id="sConfirm"> Tôi xác nhận đã hoàn thành việc thay đổi cài đặt</label>
   <div style="display:flex;gap:8px;margin-top:12px">
@@ -96,7 +97,7 @@ input:focus{border-color:var(--pri)}
 
 <div class="modal" id="resModal"><div class="card">
   <h3 id="resTitle">Đã hết giờ!</h3>
-  <p class="sub" style="margin:8px 0 14px">Bạn đã hoàn thành mục tiêu này chưa? Nếu thành công, bạn sẽ phải điểm danh trong 5 ngày tiếp theo.</p>
+  <p class="sub" style="margin:8px 0 14px">Bạn đã hoàn thành mục tiêu này chưa? Nếu thành công, bạn sẽ phải điểm danh trong <b id="resDays">5</b> ngày tiếp theo.</p>
   <div style="display:flex;gap:8px">
     <button class="btn bad" style="flex:1" id="resBad">✗ Thất bại</button>
     <button class="btn ok" style="flex:1" id="resOk">✓ Thành công</button>
@@ -111,6 +112,7 @@ const $=id=>document.getElementById(id);
 let S=load();
 function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d)return d}catch(e){}
   return{timers:[],settings:{sound:true,vib:true,warn:0,checkTime:'20:00'},filter:'all'}}
+function cfg(){S.settings.days=S.settings.days||5}
 function save(){localStorage.setItem(KEY,JSON.stringify(S))}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const today=()=>{const d=new Date();d.setHours(0,0,0,0);return d.getTime()};
@@ -164,7 +166,7 @@ function checkReminder(){
   const pend=S.timers.filter(t=>t.state==='success'&&dayIdx(t)>=0&&t.checkins[dayIdx(t)]===null);
   if(pend.length){S.lastRemind=k;save();notify('📋 Nhớ điểm danh hôm nay!',pend.map(t=>t.name).join(', '),'remind')}
 }
-function dayIdx(t){const i=Math.floor((today()-t.checkStart)/DAY);return i>=0&&i<5?i:-1}
+function dayIdx(t){const i=Math.floor((today()-t.checkStart)/DAY);return i>=0&&i<t.checkins.length?i:-1}
 
 function add(){
   const name=$('nName').value.trim();const ms=((+$('nH').value||0)*3600+(+$('nM').value||0)*60+(+$('nS').value||0))*1000;
@@ -172,26 +174,32 @@ function add(){
   const t={id:uid(),name,dur:ms,state:'running',endAt:Date.now()+ms,created:Date.now()};
   S.timers.unshift(t);save();schedule(t);$('nName').value='';render();toast('Đã bắt đầu: '+name);
 }
-function act(id,a){
+function act(id,a,arg){
   const t=S.timers.find(x=>x.id===id);if(!t)return;
   if(a==='pause'){t.left=t.endAt-Date.now();t.state='paused';unschedule(t)}
   else if(a==='resume'){t.endAt=Date.now()+t.left;t.state='running';schedule(t)}
   else if(a==='reset'){t.state='running';t.endAt=Date.now()+t.dur;t.warned=false;delete t.result;delete t.checkins;delete t.streakDone;schedule(t)}
   else if(a==='del'){if(!confirm('Xoá "'+t.name+'"?'))return;unschedule(t);S.timers=S.timers.filter(x=>x!==t)}
   else if(a==='finish'){t.state='done';t.doneAt=Date.now();unschedule(t);save();render();return askResult(t)}
-  else if(a==='check'){const i=dayIdx(t);if(i<0||t.checkins[i]!==null)return;t.checkins[i]=true;toast('✅ Đã điểm danh ngày '+(i+1)+'/5');
-    if(t.checkins.every(c=>c!==null))t.streakDone=true}
+  else if(a==='check'){const i=dayIdx(t);if(i<0||t.checkins[i]!==null)return;t.checkins[i]=true;toast('✅ Đã điểm danh ngày '+(i+1)+'/'+t.checkins.length);
+    t.streakDone=t.checkins.every(c=>c!==null)}
+  else if(a==='day'){const k=+arg;if(t.checkStart+k*DAY>today())return toast('Chưa tới ngày này');
+    const c=t.checkins[k];t.checkins[k]=c===true?(t.checkStart+k*DAY<today()?false:null):true;
+    t.streakDone=t.checkins.every(c=>c!==null);toast(t.checkins[k]===true?'✅ Đã điểm danh ngày '+(k+1):'Đã bỏ điểm danh ngày '+(k+1))}
+  else if(a==='editdays'){const n=parseInt(prompt('Số ngày điểm danh cho "'+t.name+'" (1-60):',t.checkins.length));
+    if(!(n>=1&&n<=60))return;while(t.checkins.length<n)t.checkins.push(null);t.checkins.length=n;
+    t.streakDone=t.checkins.every(c=>c!==null);toast('Đã đổi thành '+n+' ngày')}
   else if(a==='judge')return askResult(t);
   save();render();
 }
 let judging=null;
 function askResult(t){
   if(!t)t=S.timers.find(x=>x.state==='done');if(!t||$('resModal').classList.contains('show'))return;
-  judging=t;$('resTitle').textContent='⏰ "'+t.name+'" đã hết giờ!';$('resModal').classList.add('show');
+  judging=t;$('resDays').textContent=S.settings.days;$('resTitle').textContent='⏰ "'+t.name+'" đã hết giờ!';$('resModal').classList.add('show');
 }
 function judge(ok){
   const t=judging;if(!t)return;$('resModal').classList.remove('show');
-  if(ok){t.state='success';t.checkStart=today()+DAY;t.checkins=[null,null,null,null,null];toast('🎉 Thành công! Hãy điểm danh 5 ngày tới')}
+  if(ok){t.state='success';t.checkStart=today();t.checkins=Array(S.settings.days).fill(null);toast('🎉 Thành công! Hãy điểm danh '+S.settings.days+' ngày')}
   else{t.state='failed';toast('Đã ghi nhận thất bại')}
   judging=null;save();render();setTimeout(askResult,300);
 }
@@ -212,12 +220,11 @@ function render(){
     else if(t.state==='failed'){badge='<span class="badge b-bad">Thất bại</span>';col='var(--bad)';acts=`<button class="btn gh" data-a="reset">↻ Làm lại</button>`}
     else if(t.state==='success'){
       const i=dayIdx(t),done=t.checkins.filter(c=>c).length;col='var(--ok)';
-      badge=t.streakDone?`<span class="badge b-ok">Hoàn tất ${done}/5</span>`:'<span class="badge b-ok">Thành công</span>';
-      extra='<div class="days">'+t.checkins.map((c,k)=>{const dt=new Date(t.checkStart+k*DAY);return`<div class="day ${c===true?'d':c===false?'m':''} ${k===i?'t':''}">${c===true?'✓':c===false?'✗':'○'}<br>${dt.getDate()}/${dt.getMonth()+1}</div>`}).join('')+'</div>';
-      if(i>=0&&t.checkins[i]===null)acts=`<button class="btn ok pulse" data-a="check">✅ Điểm danh hôm nay (ngày ${i+1}/5)</button>`;
-      else if(i<0&&!t.streakDone)extra+=`<div class="sub" style="margin-top:6px">Điểm danh bắt đầu từ ngày mai</div>`;
-      else if(!t.streakDone)extra+=`<div class="sub" style="margin-top:6px">Hôm nay đã điểm danh ✓</div>`;
-      acts+=`<button class="btn gh" data-a="reset">↻ Làm lại</button>`;
+      badge=t.streakDone?`<span class="badge b-ok">Hoàn tất ${done}/${t.checkins.length}</span>`:'<span class="badge b-ok">Thành công</span>';
+      extra='<div class="days">'+t.checkins.map((c,k)=>{const dt=new Date(t.checkStart+k*DAY);return`<div class="day ${c===true?'d':c===false?'m':''} ${k===i?'t':''} ${dt.getTime()>today()?'f':''}" data-a="day" data-k="${k}" title="Bấm để điểm danh">${c===true?'✓':c===false?'✗':'○'}<br>${dt.getDate()}/${dt.getMonth()+1}</div>`}).join('')+'</div>';
+      if(i>=0&&t.checkins[i]===null)acts=`<button class="btn ok pulse" data-a="check">✅ Điểm danh hôm nay (ngày ${i+1}/${t.checkins.length})</button>`;
+            else if(!t.streakDone)extra+=`<div class="sub" style="margin-top:6px">Hôm nay đã điểm danh ✓</div>`;
+      acts+=`<button class="btn gh" data-a="editdays">✎ Số ngày</button><button class="btn gh" data-a="reset">↻ Làm lại</button>`;
     }
     acts+=`<button class="btn gh" data-a="del">🗑</button>`;
     const pct=Math.round(p*100);
@@ -235,15 +242,15 @@ function updateLive(){
 
 $('addBtn').onclick=add;$('nName').onkeydown=e=>e.key==='Enter'&&add();
 $('tabs').onclick=e=>{const f=e.target.dataset.f;if(f){S.filter=f;save();render()}};
-$('list').onclick=e=>{const b=e.target.closest('[data-a]');if(b)act(b.closest('[data-id]').dataset.id,b.dataset.a)};
+$('list').onclick=e=>{const b=e.target.closest('[data-a]');if(b)act(b.closest('[data-id]').dataset.id,b.dataset.a,b.dataset.k)};
 $('resOk').onclick=()=>judge(true);$('resBad').onclick=()=>judge(false);
 
 // Cài đặt — bắt buộc tick xác nhận hoàn thành trước khi lưu
-$('setBtn').onclick=()=>{const s=S.settings;$('sSound').checked=s.sound;$('sVib').checked=s.vib;$('sWarn').value=s.warn;$('sCheckTime').value=s.checkTime;$('sConfirm').checked=false;$('setModal').classList.add('show')};
+$('setBtn').onclick=()=>{const s=S.settings;$('sSound').checked=s.sound;$('sVib').checked=s.vib;$('sWarn').value=s.warn;$('sCheckTime').value=s.checkTime;$('sDays').value=s.days;$('sConfirm').checked=false;$('setModal').classList.add('show')};
 $('sCancel').onclick=()=>$('setModal').classList.remove('show');
 $('sSave').onclick=()=>{
   if(!$('sConfirm').checked){$('sConfirm').parentElement.animate([{transform:'translateX(-6px)'},{transform:'translateX(6px)'},{transform:'none'}],{duration:250});return toast('Hãy tick xác nhận hoàn thành trước khi lưu')}
-  S.settings={sound:$('sSound').checked,vib:$('sVib').checked,warn:Math.max(0,+$('sWarn').value||0),checkTime:$('sCheckTime').value||'20:00'};
+  S.settings={sound:$('sSound').checked,vib:$('sVib').checked,warn:Math.max(0,+$('sWarn').value||0),checkTime:$('sCheckTime').value||'20:00',days:Math.min(60,Math.max(1,parseInt($('sDays').value)||5))};
   S.lastSettingsChange=Date.now();save();$('setModal').classList.remove('show');toast('✅ Đã lưu cài đặt');
 };
 $('notifBtn').onclick=async()=>{if(!('Notification'in window))return toast('Thiết bị không hỗ trợ thông báo');
@@ -251,7 +258,7 @@ $('notifBtn').onclick=async()=>{if(!('Notification'in window))return toast('Thi�
 
 if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 document.addEventListener('visibilitychange',()=>!document.hidden&&tick());
-render();tick();setInterval(tick,500);
+cfg();render();tick();setInterval(tick,500);
 </script>
 </body>
 </html>
