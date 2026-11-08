@@ -81,7 +81,7 @@ input:focus{border-color:var(--pri)}
       <div><div class="lbl">Giây</div><input id="nS" type="number" min="0" value="0"></div>
     </div>
     <div class="lbl" style="margin-top:8px">Đã làm được (không bắt buộc) — giờ hoặc giờ:phút, vd <b>12</b> hoặc <b>12:30</b></div>
-    <input id="nDone" name="tg-done-hours" type="text" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Để trống nếu bắt đầu từ 0" style="width:100%" inputmode="decimal">
+    <input id="nDone" name="tg-done-hours" type="text" readonly onfocus="this.removeAttribute('readonly')" autocomplete="one-time-code" data-lpignore="true" data-1p-ignore data-form-type="other" autocorrect="off" spellcheck="false" placeholder="Để trống nếu bắt đầu từ 0" style="width:100%" inputmode="decimal">
     <button class="btn full" id="addBtn">＋ Thêm & bắt đầu</button>
   </div>
 
@@ -398,7 +398,9 @@ addEventListener('online',sync);setInterval(()=>!document.hidden&&sync(),30000);
 
 if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tick();sync()}});
-cfg();$('nH').value=S.settings.mileH;rebuildSnap();render();tick();sync();setInterval(tick,500);
+cfg();$('nH').value=S.settings.mileH;
+{const d=$('nDone'),clean=()=>{const v=d.value.replace(/[^0-9:.,]/g,'');if(v!==d.value)d.value=v};['input','change','blur'].forEach(e=>d.addEventListener(e,clean));setInterval(clean,700);clean()}
+rebuildSnap();render();tick();sync();setInterval(tick,500);
 </script>
 </body>
 </html>
