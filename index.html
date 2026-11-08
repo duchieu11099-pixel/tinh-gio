@@ -48,6 +48,9 @@ input:focus{border-color:var(--pri)}
 .sec.col{cursor:pointer}.sec .arr{margin-left:auto;color:var(--mut);font-size:13px}
 .sec-mile .card{border-color:#f59e0b88}.sec-judge .card{border-color:#f59e0b}.sec-check .card{border-color:#22c55e66}
 .mile{font-size:12px;margin-top:8px;color:#fcd34d}.mile.r{color:#86efac}
+.vbar{display:flex;justify-content:flex-end;gap:6px;margin-top:10px}.vbar .tab.on{background:var(--pri);color:#fff}
+.card.cp{padding:10px 14px;cursor:pointer}.card.cp .sub,.card.cp .mile,.card.cp .days,.card.cp .acts{display:none}.card.cp .ring{transform:scale(.7);margin:-12px}.card.cp .time{font-size:15px;font-weight:600;color:var(--mut)}.card.cp .name{font-size:15px}
+.card.cpo{cursor:pointer}
 .empty{text-align:center;color:var(--mut);padding:30px}
 .modal{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;padding:16px;z-index:9}
 .modal.show{display:flex}
@@ -85,6 +88,7 @@ input:focus{border-color:var(--pri)}
     <button class="btn full" id="addBtn">＋ Thêm & bắt đầu</button>
   </div>
 
+  <div class="vbar"><div class="tab" id="vFull">▤ Chi tiết</div><div class="tab" id="vComp">▦ Thu gọn</div></div>
   <div class="tabs" id="tabs"></div>
   <div id="list"></div>
 </div>
@@ -152,6 +156,8 @@ const pctS=p=>{const v=Math.max(0,p*100);return(v<1?v.toFixed(2):v<10?v.toFixed(
 // "12" = 12 giờ, "12:30" = 12 giờ 30 phút, "12:30:10"
 function parseDur(x){x=String(x||'').trim().replace(',','.');if(!x)return 0;const p=x.split(':').map(Number);if(p.some(isNaN))return NaN;
   return((p[0]||0)*3600+(p[1]||0)*60+(p[2]||0))*1000}
+const fmtLeft=ms=>{ms=Math.max(0,Math.ceil(ms/1000));const d=Math.floor(ms/86400),h=Math.floor(ms%86400/3600),m=Math.floor(ms%3600/60),x=ms%60;
+  return d?d+' ngày '+h+' giờ '+m+' phút':h?h+' giờ '+m+' phút '+x+' giây':m+' phút '+x+' giây'};
 const fmtIn=ms=>{const m=Math.round(ms/6e4);return Math.floor(m/60)+':'+String(m%60).padStart(2,'0')};
 const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -321,12 +327,13 @@ function card(t){{
     }
     acts+=`<button class="btn gh" data-a="rename">✏️ Tên</button><button class="btn gh" data-a="del">🗑</button>`;
     const pct=pctS(p);
-    return`<div class="card" data-id="${t.id}"><div class="timer"><div class="ring">${ring(p,col)}<span data-pct>${pct}</span></div>
+    const cpv=VIEW==="c",cls=cpv?(OPEN.has(t.id)?"cpo":"cp"):"";
+    return`<div class="card ${cls}" data-id="${t.id}"><div class="timer"><div class="ring">${ring(p,col)}<span data-pct>${pct}</span></div>
       <div class="info"><div class="name">${esc(t.name)}${badge}</div>
       <div class="time" data-left>${timeTxt(t,left,el)}</div>
       <div class="sub" data-el>${elTxt(t,el)}</div><div class="sub">Mục tiêu ${fmt(t.dur)}${t.state==='running'?' · xong lúc '+new Date(t.endAt).toLocaleString('vi',{hour:'2-digit',minute:'2-digit',...(t.endAt-Date.now()>2e7?{day:'2-digit',month:'2-digit'}:{})}):''}</div></div></div>
       ${mileLine(t)}${extra}<div class="acts">${acts}</div></div>`}}
-function timeTxt(t,left,el){return t.state==='running'||t.state==='paused'?fmt(left):el>t.dur?'+'+fmt(el-t.dur):fmt(el)}
+function timeTxt(t,left,el){return t.state==='running'||t.state==='paused'?'Còn '+fmtLeft(left):el>t.dur?'+'+fmt(el-t.dur):fmt(el)}
 function elTxt(t,el){return(t.state==='success'||t.state==='failed'?'Tổng đã làm ':'Đã làm ')+fmt(el)+(el>t.dur?' · vượt '+fmt(el-t.dur):'')}
 function mileLine(t){const m=mileInfo(t);if(!m)return'';return m.reached?'<div class="mile r">🏁 Đã qua cột mốc '+S.settings.mileH+' giờ</div>':'<div class="mile" data-mile>🚩 Cột mốc '+S.settings.mileH+' giờ: còn '+fmtH(m.left)+'</div>'}
 function updateLive(){
@@ -336,9 +343,14 @@ function updateLive(){
     const c=el.querySelectorAll('circle')[1],L=2*Math.PI*34;c.setAttribute('stroke-dashoffset',L*(1-Math.min(1,p)))});
 }
 
+let VIEW=localStorage.getItem('tinhgio_view')||'f';const OPEN=new Set();
+function setView(v){VIEW=v;localStorage.setItem('tinhgio_view',v);OPEN.clear();$('vFull').classList.toggle('on',v==='f');$('vComp').classList.toggle('on',v==='c');render()}
+$('vFull').onclick=()=>setView('f');$('vComp').onclick=()=>setView('c');
 $('addBtn').onclick=add;$('nName').onkeydown=e=>e.key==='Enter'&&add();
 $('tabs').onclick=e=>{const f=e.target.dataset.f;if(f){if(f==='hist'&&!S.histOpen){S.histOpen=true;render()}document.getElementById('sec-'+f)?.scrollIntoView({behavior:'smooth'})}};
-$('list').onclick=e=>{if(e.target.closest('[data-tog]')){S.histOpen=!S.histOpen;localStorage.setItem(KEY,JSON.stringify(S));return render()}const b=e.target.closest('[data-a]');if(b)act(b.closest('[data-id]').dataset.id,b.dataset.a,b.dataset.k)};
+$('list').onclick=e=>{if(e.target.closest('[data-tog]')){S.histOpen=!S.histOpen;localStorage.setItem(KEY,JSON.stringify(S));return render()}const b=e.target.closest('[data-a]');
+  if(!b&&VIEW==='c'){const c=e.target.closest('[data-id]');if(c){const id=c.dataset.id;OPEN.has(id)?OPEN.delete(id):OPEN.add(id);return render()}}
+  if(b)act(b.closest('[data-id]').dataset.id,b.dataset.a,b.dataset.k)};
 $('resLater').onclick=()=>{if(judging){judging.later=true;save();render()}judging=null;$('resModal').classList.remove('show')};
 $('resOk').onclick=()=>judge(true);$('resBad').onclick=()=>judge(false);
 
@@ -413,7 +425,7 @@ addEventListener('online',sync);setInterval(()=>!document.hidden&&sync(),60000);
 
 if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tick();sync()}});
-cfg();$('nH').value=S.settings.mileH;
+cfg();$('nH').value=S.settings.mileH;$('vFull').classList.toggle('on',VIEW==='f');$('vComp').classList.toggle('on',VIEW==='c');
 {const d=$('nDone'),clean=()=>{const v=d.value.replace(/[^0-9:.,]/g,'');if(v!==d.value)d.value=v};['input','change','blur'].forEach(e=>d.addEventListener(e,clean));setInterval(clean,700);clean()}
 rebuildSnap();render();tick();sync();setInterval(tick,500);
 </script>
