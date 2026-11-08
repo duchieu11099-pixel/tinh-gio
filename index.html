@@ -80,6 +80,8 @@ input:focus{border-color:var(--pri)}
       <div><div class="lbl">Phút</div><input id="nM" type="number" min="0" value="25"></div>
       <div><div class="lbl">Giây</div><input id="nS" type="number" min="0" value="0"></div>
     </div>
+    <div class="lbl" style="margin-top:8px">Đã làm được (không bắt buộc) — giờ hoặc giờ:phút, vd <b>12</b> hoặc <b>12:30</b></div>
+    <input id="nDone" placeholder="Để trống nếu bắt đầu từ 0" style="width:100%" inputmode="numeric">
     <button class="btn full" id="addBtn">＋ Thêm & bắt đầu</button>
   </div>
 
@@ -112,6 +114,7 @@ input:focus{border-color:var(--pri)}
     <button class="btn bad" style="flex:1" id="resBad">✗ Thất bại</button>
     <button class="btn ok" style="flex:1" id="resOk">✓ Thành công</button>
   </div>
+  <button class="btn full gh" id="resLater">⏳ Để sau — tiếp tục đếm phần vượt chỉ tiêu</button>
 </div></div>
 
 <div class="modal" id="syncModal"><div class="card">
@@ -145,7 +148,11 @@ function save(){stamp();localStorage.setItem(KEY,JSON.stringify(S));pushSoon()}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const today=()=>{const d=new Date();d.setHours(0,0,0,0);return d.getTime()};
 const fmt=ms=>{ms=Math.max(0,Math.ceil(ms/1000));const h=Math.floor(ms/3600),m=Math.floor(ms%3600/60),s=ms%60;return(h?h+':':'')+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')};
-const pctS=p=>{const v=Math.max(0,Math.min(100,p*100));return(v>=100?100:v<1?v.toFixed(2):v<10?v.toFixed(1):Math.floor(v))+'%'};
+const pctS=p=>{const v=Math.max(0,p*100);return(v<1?v.toFixed(2):v<10?v.toFixed(1):Math.floor(v))+'%'};
+// "12" = 12 giờ, "12:30" = 12 giờ 30 phút, "12:30:10"
+function parseDur(x){x=String(x||'').trim().replace(',','.');if(!x)return 0;const p=x.split(':').map(Number);if(p.some(isNaN))return NaN;
+  return((p[0]||0)*3600+(p[1]||0)*60+(p[2]||0))*1000}
+const fmtIn=ms=>{const m=Math.round(ms/6e4);return Math.floor(m/60)+':'+String(m%60).padStart(2,'0')};
 const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 // Thời gian dựa trên mốc timestamp -> vẫn chạy đúng kể cả khi tắt app
@@ -168,7 +175,17 @@ function beep(){try{const a=new(window.AudioContext||window.webkitAudioContext)(
 // ===== Cột mốc =====
 const H=36e5;
 const fmtH=ms=>{ms=Math.max(0,ms);const h=Math.floor(ms/H),m=Math.floor(ms%H/6e4);return(h?h+' giờ ':'')+m+' phút'};
-const elapsed=t=>t.state==='running'?t.dur-(t.endAt-Date.now()):t.state==='paused'?t.dur-t.left:t.dur;
+const elapsed=t=>t.state==='running'?t.dur-(t.endAt-Date.now()):t.state==='paused'?t.dur-t.left:t.el!=null?t.el:t.state==='done'?Date.now()-(t.endAt-t.dur):t.dur;
+const live=t=>t.state==='running'||(t.state==='done'&&t.el==null);
+// đặt lại tiến độ (đã làm được el ms)
+function setProgress(t,el){
+  unschedule(t);delete t.el;const now=Date.now();
+  if(el>=t.dur){t.state='done';t.endAt=now-(el-t.dur);t.doneAt=t.endAt}
+  else if(t.state==='paused')t.left=t.dur-el;
+  else{t.state='running';t.endAt=now+t.dur-el}
+  t.warned=t.dur-el<=S.settings.warn*6e4;const m=mileInfo(t);t.mReached=!!(m&&m.reached);t.mWarned=!!(m&&(m.reached||m.near));t.later=false;
+  if(t.state==='running')schedule(t);
+}
 function mileInfo(t){const M=S.settings.mileH*H;if(!(t.state==='running'||t.state==='paused')||t.dur<M)return null;
   const e=elapsed(t);return{left:M-e,reached:e>=M,near:e<M&&M-e<=S.settings.leadH*H}}
 
@@ -227,16 +244,24 @@ function dayIdx(t){const i=Math.floor((today()-t.checkStart)/DAY);return i>=0&&i
 function add(){
   const name=$('nName').value.trim();const ms=((+$('nH').value||0)*3600+(+$('nM').value||0)*60+(+$('nS').value||0))*1000;
   if(!name)return toast('Hãy nhập tên');if(ms<=0)return toast('Thời gian phải > 0');
+  const el=parseDur($('nDone').value);if(isNaN(el)||el<0)return toast('Ô "Đã làm được" không hợp lệ (vd 12 hoặc 12:30)');
   const t={id:uid(),name,dur:ms,state:'running',endAt:Date.now()+ms,created:Date.now()};
-  S.timers.unshift(t);save();schedule(t);$('nName').value='';render();toast('Đã bắt đầu: '+name);
+  S.timers.unshift(t);setProgress(t,el);save();$('nName').value='';$('nDone').value='';render();
+  toast(el?'Đã thêm '+name+' — đã làm '+pctS(el/ms):'Đã bắt đầu: '+name);if(t.state==='done')askResult(t);
 }
 function act(id,a,arg){
   const t=S.timers.find(x=>x.id===id);if(!t)return;
   if(a==='pause'){t.left=t.endAt-Date.now();t.state='paused';unschedule(t)}
   else if(a==='resume'){t.endAt=Date.now()+t.left;t.state='running';schedule(t)}
-  else if(a==='reset'){unschedule(t);t.state='running';t.endAt=Date.now()+t.dur;t.warned=false;t.mWarned=t.mReached=false;delete t.result;delete t.checkins;delete t.streakDone;schedule(t)}
+  else if(a==='prog'){
+    const e=prompt('"'+t.name+'" — đã làm được bao nhiêu? (giờ hoặc giờ:phút)',fmtIn(elapsed(t)));if(e===null)return;
+    const el=parseDur(e);if(isNaN(el)||el<0)return toast('Không hợp lệ, vd 50 hoặc 50:30');
+    const d=prompt('Chỉ tiêu (giờ hoặc giờ:phút):',fmtIn(t.dur));if(d===null)return;
+    const dur=parseDur(d);if(isNaN(dur)||dur<=0)return toast('Chỉ tiêu không hợp lệ');
+    t.dur=dur;setProgress(t,el);toast('Đã cập nhật: '+pctS(el/dur));save();render();if(t.state==='done')askResult(t);return}
+  else if(a==='reset'){unschedule(t);delete t.el;t.later=false;t.state='running';t.endAt=Date.now()+t.dur;t.warned=false;t.mWarned=t.mReached=false;delete t.result;delete t.checkins;delete t.streakDone;schedule(t)}
   else if(a==='del'){if(!confirm('Xoá "'+t.name+'"?'))return;unschedule(t);S.deleted=S.deleted||{};S.deleted[t.id]=Date.now();S.timers=S.timers.filter(x=>x!==t)}
-  else if(a==='finish'){t.state='done';t.doneAt=Date.now();unschedule(t);save();render();return askResult(t)}
+  else if(a==='finish'){t.el=elapsed(t);t.state='done';t.doneAt=Date.now();unschedule(t);save();render();return askResult(t)}
   else if(a==='check'){const i=dayIdx(t);if(i<0||t.checkins[i]!==null)return;t.checkins[i]=true;toast('✅ Đã điểm danh ngày '+(i+1)+'/'+t.checkins.length);
     t.streakDone=t.checkins.every(c=>c!==null)}
   else if(a==='day'){const k=+arg;if(t.checkStart+k*DAY>today())return toast('Chưa tới ngày này');
@@ -250,17 +275,17 @@ function act(id,a,arg){
 }
 let judging=null;
 function askResult(t){
-  if(!t)t=S.timers.find(x=>x.state==='done');if(!t||$('resModal').classList.contains('show'))return;
+  if(!t)t=S.timers.find(x=>x.state==='done'&&!x.later);if(!t||$('resModal').classList.contains('show'))return;
   judging=t;$('resDays').textContent=S.settings.days;$('resTitle').textContent='⏰ "'+t.name+'" đã hết giờ!';$('resModal').classList.add('show');
 }
 function judge(ok){
-  const t=judging;if(!t)return;$('resModal').classList.remove('show');
+  const t=judging;if(!t)return;$('resModal').classList.remove('show');t.el=elapsed(t);t.later=false;unschedule(t);
   if(ok){t.state='success';t.checkStart=today();t.checkins=Array(S.settings.days).fill(null);toast('🎉 Thành công! Hãy điểm danh '+S.settings.days+' ngày')}
   else{t.state='failed';toast('Đã ghi nhận thất bại')}
   judging=null;save();render();setTimeout(askResult,300);
 }
 
-function ring(p,c){const r=34,L=2*Math.PI*r;return`<svg width="78" height="78"><circle cx="39" cy="39" r="${r}" stroke="#26305a" stroke-width="7" fill="none"/><circle cx="39" cy="39" r="${r}" stroke="${c}" stroke-width="7" fill="none" stroke-linecap="round" stroke-dasharray="${L}" stroke-dashoffset="${L*(1-p)}"/></svg>`}
+function ring(p,c){const r=34,L=2*Math.PI*r;return`<svg width="78" height="78"><circle cx="39" cy="39" r="${r}" stroke="#26305a" stroke-width="7" fill="none"/><circle cx="39" cy="39" r="${r}" stroke="${c}" stroke-width="7" fill="none" stroke-linecap="round" stroke-dasharray="${L}" stroke-dashoffset="${L*(1-Math.min(1,p))}"/></svg>`}
 
 function render(){
   const G=[['judge','⚖️ Cần đánh giá kết quả',t=>t.state==='done'],
@@ -277,11 +302,11 @@ function render(){
 }
 function card(t){{
 
-    const left=remaining(t),p=t.state==='running'||t.state==='paused'?1-left/t.dur:1;
+    const left=remaining(t),el=elapsed(t),p=el/t.dur,act=t.state==='running'||t.state==='paused'||t.state==='done';
     let badge,acts='',extra='',col='var(--pri)';
-    if(t.state==='running'){badge='<span class="badge b-run">Đang chạy</span>';acts=`<button class="btn gh" data-a="pause">⏸ Tạm dừng</button><button class="btn gh" data-a="finish">⏹ Kết thúc sớm</button>`}
-    else if(t.state==='paused'){badge='<span class="badge b-pause">Tạm dừng</span>';col='#64748b';acts=`<button class="btn" data-a="resume">▶ Tiếp tục</button>`}
-    else if(t.state==='done'){badge='<span class="badge b-done">Hết giờ</span>';col='var(--warn)';acts=`<button class="btn ok" data-a="judge">Đánh giá kết quả</button>`}
+    if(t.state==='running'){badge='<span class="badge b-run">Đang chạy</span>';acts=`<button class="btn gh" data-a="pause">⏸ Tạm dừng</button><button class="btn gh" data-a="finish">⏹ Kết thúc sớm</button><button class="btn gh" data-a="prog">✎ Tiến độ</button>`}
+    else if(t.state==='paused'){badge='<span class="badge b-pause">Tạm dừng</span>';col='#64748b';acts=`<button class="btn" data-a="resume">▶ Tiếp tục</button><button class="btn gh" data-a="prog">✎ Tiến độ</button>`}
+    else if(t.state==='done'){badge=p>1?'<span class="badge b-done">Vượt chỉ tiêu</span>':'<span class="badge b-done">Hết giờ</span>';col=p>1?'var(--ok)':'var(--warn)';acts=`<button class="btn ok" data-a="judge">Đánh giá kết quả</button><button class="btn gh" data-a="prog">✎ Tiến độ</button>`}
     else if(t.state==='failed'){badge='<span class="badge b-bad">Thất bại</span>';col='var(--bad)';acts=`<button class="btn gh" data-a="reset">↻ Làm lại</button>`}
     else if(t.state==='success'){
       const i=dayIdx(t),done=t.checkins.filter(c=>c).length;col='var(--ok)';
@@ -295,20 +320,23 @@ function card(t){{
     const pct=pctS(p);
     return`<div class="card" data-id="${t.id}"><div class="timer"><div class="ring">${ring(p,col)}<span data-pct>${pct}</span></div>
       <div class="info"><div class="name">${esc(t.name)}${badge}</div>
-      <div class="time" data-left>${t.state==='running'||t.state==='paused'?fmt(left):fmt(t.dur)}</div>
-      ${t.state==='running'||t.state==='paused'?`<div class="sub" data-el>Đã chạy ${fmt(t.dur-left)}</div>`:''}<div class="sub">Mục tiêu ${fmt(t.dur)}${t.state==='running'?' · xong lúc '+new Date(t.endAt).toLocaleString('vi',{hour:'2-digit',minute:'2-digit',...(t.endAt-Date.now()>2e7?{day:'2-digit',month:'2-digit'}:{})}):''}</div></div></div>
+      <div class="time" data-left>${timeTxt(t,left,el)}</div>
+      <div class="sub" data-el>${elTxt(t,el)}</div><div class="sub">Mục tiêu ${fmt(t.dur)}${t.state==='running'?' · xong lúc '+new Date(t.endAt).toLocaleString('vi',{hour:'2-digit',minute:'2-digit',...(t.endAt-Date.now()>2e7?{day:'2-digit',month:'2-digit'}:{})}):''}</div></div></div>
       ${mileLine(t)}${extra}<div class="acts">${acts}</div></div>`}}
+function timeTxt(t,left,el){return t.state==='running'||t.state==='paused'?fmt(left):el>t.dur?'+'+fmt(el-t.dur):fmt(el)}
+function elTxt(t,el){return(t.state==='success'||t.state==='failed'?'Tổng đã làm ':'Đã làm ')+fmt(el)+(el>t.dur?' · vượt '+fmt(el-t.dur):'')}
 function mileLine(t){const m=mileInfo(t);if(!m)return'';return m.reached?'<div class="mile r">🏁 Đã qua cột mốc '+S.settings.mileH+' giờ</div>':'<div class="mile" data-mile>🚩 Cột mốc '+S.settings.mileH+' giờ: còn '+fmtH(m.left)+'</div>'}
 function updateLive(){
-  document.querySelectorAll('[data-id]').forEach(el=>{const t=S.timers.find(x=>x.id===el.dataset.id);if(!t||t.state!=='running')return;
-    const left=remaining(t),p=1-left/t.dur;el.querySelector('[data-left]').textContent=fmt(left);el.querySelector('[data-pct]').textContent=pctS(p);const ee=el.querySelector('[data-el]');if(ee)ee.textContent='Đã chạy '+fmt(t.dur-left);
+  document.querySelectorAll('[data-id]').forEach(el=>{const t=S.timers.find(x=>x.id===el.dataset.id);if(!t||!live(t))return;
+    const left=remaining(t),e=elapsed(t),p=e/t.dur;el.querySelector('[data-left]').textContent=timeTxt(t,left,e);el.querySelector('[data-pct]').textContent=pctS(p);const ee=el.querySelector('[data-el]');if(ee)ee.textContent=elTxt(t,e);
     const mm=el.querySelector('[data-mile]'),mi=mileInfo(t);if(mm&&mi&&!mi.reached)mm.textContent='🚩 Cột mốc '+S.settings.mileH+' giờ: còn '+fmtH(mi.left);
-    const c=el.querySelectorAll('circle')[1],L=2*Math.PI*34;c.setAttribute('stroke-dashoffset',L*(1-p))});
+    const c=el.querySelectorAll('circle')[1],L=2*Math.PI*34;c.setAttribute('stroke-dashoffset',L*(1-Math.min(1,p)))});
 }
 
 $('addBtn').onclick=add;$('nName').onkeydown=e=>e.key==='Enter'&&add();
 $('tabs').onclick=e=>{const f=e.target.dataset.f;if(f){if(f==='hist'&&!S.histOpen){S.histOpen=true;render()}document.getElementById('sec-'+f)?.scrollIntoView({behavior:'smooth'})}};
 $('list').onclick=e=>{if(e.target.closest('[data-tog]')){S.histOpen=!S.histOpen;localStorage.setItem(KEY,JSON.stringify(S));return render()}const b=e.target.closest('[data-a]');if(b)act(b.closest('[data-id]').dataset.id,b.dataset.a,b.dataset.k)};
+$('resLater').onclick=()=>{if(judging){judging.later=true;save();render()}judging=null;$('resModal').classList.remove('show')};
 $('resOk').onclick=()=>judge(true);$('resBad').onclick=()=>judge(false);
 
 // Cài đặt — bắt buộc tick xác nhận hoàn thành trước khi lưu
