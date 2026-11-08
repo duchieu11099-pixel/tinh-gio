@@ -128,7 +128,7 @@ input:focus{border-color:var(--pri)}
     <button class="btn full" id="syncGo">Kết nối</button>
   </div>
   <div id="syncOn" style="display:none">
-    <p class="sub">Tự đồng bộ khi mở app, khi có thay đổi và mỗi 30 giây.</p>
+    <p class="sub">Tự đồng bộ khi mở app, khi có thay đổi và mỗi 1 phút.</p>
     <button class="btn full" id="syncNow">↻ Đồng bộ ngay</button>
     <button class="btn full bad" id="syncOff">Ngắt đồng bộ trên máy này</button>
   </div>
@@ -374,21 +374,25 @@ async function gh(path,opt={}){const r=await fetch('https://api.github.com'+path
     let h='HTTP '+r.status+(m?' — '+m:'');
     if(r.status===401)h='token sai hoặc đã hết hạn';
     else if(r.status===403&&sc!==null&&!/gist/.test(sc))h='token chưa có quyền gist (hãy tạo lại và tick ô gist)';
-    else if(r.status===403&&/rate limit/i.test(m))h='GitHub đang giới hạn tốc độ, thử lại sau ít phút';
+    else if((r.status===403||r.status===429)&&(/rate limit/i.test(m)||r.headers.get('x-ratelimit-remaining')==='0')){
+      const ra=+r.headers.get('retry-after'),rs=+r.headers.get('x-ratelimit-reset');
+      backoff=ra?Date.now()+ra*1000:rs?rs*1000:Date.now()+10*6e4;backoff=Math.max(backoff,Date.now()+6e4);
+      h='GitHub đang giới hạn tốc độ, app tự thử lại lúc '+new Date(backoff).toLocaleTimeString('vi')}
     else if(r.status===403&&sc===null)h='token này là loại fine-grained nên không dùng được — hãy tạo "Tokens (classic)" và tick gist';
     const e=new Error(h);e.status=r.status;throw e}
   return r.json()}
 async function findGist(){for(let pg=1;pg<=5;pg++){const l=await gh('/gists?per_page=100&page='+pg);const g=l.find(g=>g.files[FN]);if(g)return g.id;if(l.length<100)break}
   const g=await gh('/gists',{method:'POST',body:JSON.stringify({description:'Dữ liệu app Tính Giờ (đồng bộ)',public:false,files:{[FN]:{content:'{}'}}})});return g.id}
 const pub=x=>{const{filter,...r}=x;return JSON.stringify(r)};
-let syncing=false,again=false,pushT;
+let backoff=0,syncing=false,again=false,pushT;
 function setSt(m){$('syncSt').textContent=m;$('syncBtn').textContent=SY.token?(m.startsWith('⚠')?'⚠️':'☁️'):'☁️'}
 async function sync(){
   if(!SY.token)return setSt('Chưa kết nối');if(!navigator.onLine)return setSt('📴 Offline — sẽ đồng bộ khi có mạng');
+  if(Date.now()<backoff)return setSt('⏳ GitHub đang giới hạn — tự đồng bộ lại lúc '+new Date(backoff).toLocaleTimeString('vi'));
   if(syncing){again=true;return}syncing=true;setSt('⏳ Đang đồng bộ...');
   try{
     if(!SY.gistId){SY.gistId=await findGist();saveSY()}
-    let g;try{g=await gh('/gists/'+SY.gistId)}catch(e){if(e.status===404||e.status===403){SY.gistId=await findGist();saveSY();g=await gh('/gists/'+SY.gistId)}else throw e}
+    let g;try{g=await gh('/gists/'+SY.gistId)}catch(e){if(e.status===404){SY.gistId=await findGist();saveSY();g=await gh('/gists/'+SY.gistId)}else throw e}
     const f=g.files[FN];if(!f)throw new Error('không thấy file dữ liệu');
     const txt=f.truncated?await(await fetch(f.raw_url,{cache:'no-store'})).text():f.content;
     const R=JSON.parse(txt||'{}');stamp();const M=merge(R);
@@ -405,7 +409,7 @@ $('syncGo').onclick=async()=>{const t=$('syncTok').value.trim();if(!t)return toa
   if($('syncSt').textContent.startsWith('✓')){toast('☁️ Đã kết nối đồng bộ');$('syncBtn').click()}else{SY={};saveSY()}};
 $('syncNow').onclick=sync;
 $('syncOff').onclick=()=>{if(!confirm('Ngắt đồng bộ trên máy này? (dữ liệu trên máy và trên GitHub vẫn giữ nguyên)'))return;SY={};saveSY();setSt('Chưa kết nối');$('syncModal').classList.remove('show')};
-addEventListener('online',sync);setInterval(()=>!document.hidden&&sync(),30000);
+addEventListener('online',sync);setInterval(()=>!document.hidden&&sync(),60000);
 
 if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){tick();sync()}});
