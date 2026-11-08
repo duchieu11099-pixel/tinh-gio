@@ -88,6 +88,8 @@ input:focus{border-color:var(--pri)}
   <div class="row"><span>Rung (điện thoại)</span><input type="checkbox" id="sVib"></div>
   <div class="row"><span>Nhắc trước khi hết (phút)</span><input type="number" id="sWarn" min="0" style="width:80px"></div>
   <div class="row"><span>Số ngày điểm danh (mặc định)</span><input type="number" id="sDays" min="1" max="60" style="width:80px"></div>
+  <div class="row"><span>Chủ đề ntfy</span><input id="sNtfy" readonly style="width:170px;font-size:12px"></div>
+  <div class="sub" style="margin:6px 0">Android: cài app <b>ntfy</b> (Play Store / F-Droid), bấm + và đăng ký đúng chủ đề này để nhận thông báo khi app đóng.</div>
   <div class="row"><span>Giờ nhắc điểm danh</span><input type="time" id="sCheckTime"></div>
   <label class="chk"><input type="checkbox" id="sConfirm"> Tôi xác nhận đã hoàn thành việc thay đổi cài đặt</label>
   <div style="display:flex;gap:8px;margin-top:12px">
@@ -131,7 +133,7 @@ const $=id=>document.getElementById(id);
 let S=load();
 function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d)return d}catch(e){}
   return{timers:[],settings:{sound:true,vib:true,warn:0,checkTime:'20:00'},filter:'all'}}
-function cfg(){S.settings.days=S.settings.days||5}
+function cfg(){S.settings.days=S.settings.days||5;if(!S.settings.ntfy)S.settings.ntfy="tinhgio-"+Array.from(crypto.getRandomValues(new Uint8Array(10)),x=>"abcdefghijklmnopqrstuvwxyz0123456789"[x%36]).join("")}
 function save(){stamp();localStorage.setItem(KEY,JSON.stringify(S));pushSoon()}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const today=()=>{const d=new Date();d.setHours(0,0,0,0);return d.getTime()};
@@ -154,12 +156,21 @@ async function notify(title,body,tag){
 }
 function beep(){try{const a=new(window.AudioContext||window.webkitAudioContext)();[0,.35,.7].forEach(t=>{const o=a.createOscillator(),g=a.createGain();o.frequency.value=880;o.connect(g);g.connect(a.destination);g.gain.setValueAtTime(.3,a.currentTime+t);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+t+.3);o.start(a.currentTime+t);o.stop(a.currentTime+t+.3)})}catch(e){}}
 
-// Lên lịch thông báo hệ thống (Chrome Android/desktop hỗ trợ Notification Triggers) — dự phòng khi app đóng
+
+// ===== ntfy.sh: hẹn thông báo đẩy tới điện thoại kể cả khi app đóng =====
+const nTopic=()=>S.settings.ntfy;
+const busy=new Map();
 async function schedule(t){
-  try{const r=await navigator.serviceWorker?.ready;if(!r||!('TimestampTrigger'in window)||Notification.permission!=='granted')return;
-    r.showNotification('⏰ '+t.name+' đã hết giờ!',{tag:'t'+t.id,body:'Mở app để đánh dấu thành công/thất bại',showTrigger:new TimestampTrigger(t.endAt),icon:'icon.svg'})}catch(e){}
+  const tp=nTopic();if(!tp||t.state!=='running'||t.ntfyId||!navigator.onLine)return;
+  if(Date.now()-(busy.get(t.id)||0)<30000)return;busy.set(t.id,Date.now());
+  const sec=Math.floor(t.endAt/1000);if(t.endAt-Date.now()<12e3||t.endAt-Date.now()>2.9*DAY)return;
+  try{const r=await fetch('https://ntfy.sh/',{method:'POST',body:JSON.stringify({topic:tp,title:'⏰ '+t.name+' đã hết giờ!',message:'Mở app Tính Giờ để đánh dấu thành công/thất bại',delay:String(sec),priority:4,tags:['alarm_clock']})});
+    if(r.ok){const j=await r.json();t.ntfyId=j.id;t.ntfyTopic=tp;stamp();localStorage.setItem(KEY,JSON.stringify(S))}}catch(e){}
 }
-async function unschedule(t){try{const r=await navigator.serviceWorker?.ready;const ns=await r.getNotifications({tag:'t'+t.id,includeTriggered:true});ns.forEach(n=>n.close())}catch(e){}}
+async function unschedule(t){
+  if(!t.ntfyId)return;const id=t.ntfyId,tp=t.ntfyTopic||nTopic();delete t.ntfyId;delete t.ntfyTopic;
+  try{await fetch('https://ntfy.sh/'+tp+'/'+id,{method:'DELETE'})}catch(e){}
+}
 
 function tick(){
   let changed=false;const now=Date.now();
@@ -175,6 +186,7 @@ function tick(){
     }
   });
   checkReminder();
+  S.timers.forEach(t=>{if(t.state==="running"&&!t.ntfyId)schedule(t)});
   if(changed){save();render();askResult()}else updateLive();
 }
 
@@ -197,7 +209,7 @@ function act(id,a,arg){
   const t=S.timers.find(x=>x.id===id);if(!t)return;
   if(a==='pause'){t.left=t.endAt-Date.now();t.state='paused';unschedule(t)}
   else if(a==='resume'){t.endAt=Date.now()+t.left;t.state='running';schedule(t)}
-  else if(a==='reset'){t.state='running';t.endAt=Date.now()+t.dur;t.warned=false;delete t.result;delete t.checkins;delete t.streakDone;schedule(t)}
+  else if(a==='reset'){unschedule(t);t.state='running';t.endAt=Date.now()+t.dur;t.warned=false;delete t.result;delete t.checkins;delete t.streakDone;schedule(t)}
   else if(a==='del'){if(!confirm('Xoá "'+t.name+'"?'))return;unschedule(t);S.deleted=S.deleted||{};S.deleted[t.id]=Date.now();S.timers=S.timers.filter(x=>x!==t)}
   else if(a==='finish'){t.state='done';t.doneAt=Date.now();unschedule(t);save();render();return askResult(t)}
   else if(a==='check'){const i=dayIdx(t);if(i<0||t.checkins[i]!==null)return;t.checkins[i]=true;toast('✅ Đã điểm danh ngày '+(i+1)+'/'+t.checkins.length);
@@ -265,11 +277,11 @@ $('list').onclick=e=>{const b=e.target.closest('[data-a]');if(b)act(b.closest('[
 $('resOk').onclick=()=>judge(true);$('resBad').onclick=()=>judge(false);
 
 // Cài đặt — bắt buộc tick xác nhận hoàn thành trước khi lưu
-$('setBtn').onclick=()=>{const s=S.settings;$('sSound').checked=s.sound;$('sVib').checked=s.vib;$('sWarn').value=s.warn;$('sCheckTime').value=s.checkTime;$('sDays').value=s.days;$('sConfirm').checked=false;$('setModal').classList.add('show')};
+$('setBtn').onclick=()=>{const s=S.settings;$('sSound').checked=s.sound;$('sVib').checked=s.vib;$('sWarn').value=s.warn;$('sCheckTime').value=s.checkTime;$('sDays').value=s.days;$('sNtfy').value=s.ntfy;$('sConfirm').checked=false;$('setModal').classList.add('show')};
 $('sCancel').onclick=()=>$('setModal').classList.remove('show');
 $('sSave').onclick=()=>{
   if(!$('sConfirm').checked){$('sConfirm').parentElement.animate([{transform:'translateX(-6px)'},{transform:'translateX(6px)'},{transform:'none'}],{duration:250});return toast('Hãy tick xác nhận hoàn thành trước khi lưu')}
-  S.settings={sound:$('sSound').checked,vib:$('sVib').checked,warn:Math.max(0,+$('sWarn').value||0),checkTime:$('sCheckTime').value||'20:00',days:Math.min(60,Math.max(1,parseInt($('sDays').value)||5))};
+  S.settings={sound:$('sSound').checked,vib:$('sVib').checked,warn:Math.max(0,+$('sWarn').value||0),checkTime:$('sCheckTime').value||'20:00',ntfy:S.settings.ntfy,days:Math.min(60,Math.max(1,parseInt($('sDays').value)||5))};
   S.settingsAt=Date.now();save();$('setModal').classList.remove('show');toast('✅ Đã lưu cài đặt');
 };
 $('notifBtn').onclick=async()=>{if(!('Notification'in window))return toast('Thiết bị không hỗ trợ thông báo');
