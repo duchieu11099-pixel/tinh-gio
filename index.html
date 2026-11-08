@@ -267,6 +267,7 @@ function act(id,a,arg){
   else if(a==='day'){const k=+arg;if(t.checkStart+k*DAY>today())return toast('Chưa tới ngày này');
     const c=t.checkins[k];t.checkins[k]=c===true?(t.checkStart+k*DAY<today()?false:null):true;
     t.streakDone=t.checkins.every(c=>c!==null);toast(t.checkins[k]===true?'✅ Đã điểm danh ngày '+(k+1):'Đã bỏ điểm danh ngày '+(k+1))}
+  else if(a==='rename'){const n=prompt('Tên mới:',t.name);if(n===null)return;const v=n.trim();if(!v)return toast('Tên không được để trống');t.name=v;if(t.state==='running'){unschedule(t).then(()=>schedule(t))}save();render();toast('Đã đổi tên: '+v);return}
   else if(a==='editdays'){const n=parseInt(prompt('Số ngày điểm danh cho "'+t.name+'" (1-60):',t.checkins.length));
     if(!(n>=1&&n<=60))return;while(t.checkins.length<n)t.checkins.push(null);t.checkins.length=n;
     t.streakDone=t.checkins.every(c=>c!==null);toast('Đã đổi thành '+n+' ngày')}
@@ -316,7 +317,7 @@ function card(t){{
             else if(!t.streakDone)extra+=`<div class="sub" style="margin-top:6px">Hôm nay đã điểm danh ✓</div>`;
       acts+=`<button class="btn gh" data-a="editdays">✎ Số ngày</button><button class="btn gh" data-a="reset">↻ Làm lại</button>`;
     }
-    acts+=`<button class="btn gh" data-a="del">🗑</button>`;
+    acts+=`<button class="btn gh" data-a="rename">✏️ Tên</button><button class="btn gh" data-a="del">🗑</button>`;
     const pct=pctS(p);
     return`<div class="card" data-id="${t.id}"><div class="timer"><div class="ring">${ring(p,col)}<span data-pct>${pct}</span></div>
       <div class="info"><div class="name">${esc(t.name)}${badge}</div>
