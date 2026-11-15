@@ -607,6 +607,14 @@ input:focus,select:focus{border-color:var(--pri);box-shadow:0 0 0 3px rgba(124,9
   </div>
   <div id="syncOn" style="display:none">
     <p class="sub">Tự đồng bộ khi mở app, khi có thay đổi và mỗi 1 phút.</p>
+    <div style="margin-top:10px;padding:10px;border-radius:12px;background:#0b1126;border:1px solid var(--border)">
+      <div class="lbl" style="margin-bottom:6px">🔑 Mã đồng bộ hiện tại (dùng để dán sang máy khác):</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input id="syncSavedTok" type="text" readonly style="flex:1;font-size:12.5px;padding:8px 10px;-webkit-text-security:disc" autocomplete="off">
+        <button class="btn gh sm" id="syncEye" type="button" title="Hiện / Ẩn mã">👁</button>
+        <button class="btn ok sm" id="syncCopy" type="button">📋 Sao chép</button>
+      </div>
+    </div>
     <button class="btn full" id="syncNow">↻ Đồng bộ ngay</button>
     <button class="btn full bad" id="syncOff">Ngắt đồng bộ trên máy này</button>
   </div>
@@ -1325,7 +1333,24 @@ async function sync(){
   syncing=false;if(again){again=false;sync()}
 }
 function pushSoon(){if(!SY.token)return;clearTimeout(pushT);pushT=setTimeout(sync,1500)}
-$('syncBtn').onclick=()=>{$('syncTok').value='';$('syncConn').style.display=SY.token?'none':'block';$('syncOn').style.display=SY.token?'block':'none';$('syncModal').classList.add('show')};
+$('syncBtn').onclick=()=>{
+  $('syncTok').value='';
+  $('syncConn').style.display=SY.token?'none':'block';
+  $('syncOn').style.display=SY.token?'block':'none';
+  if(SY.token){$('syncSavedTok').value=SY.token;$('syncSavedTok').style.webkitTextSecurity='disc';$('syncEye').textContent='👁'}
+  $('syncModal').classList.add('show');
+};
+$('syncEye').onclick=()=>{
+  const el=$('syncSavedTok'),hidden=el.style.webkitTextSecurity==='disc';
+  el.style.webkitTextSecurity=hidden?'none':'disc';
+  $('syncEye').textContent=hidden?'🙈':'👁';
+};
+$('syncCopy').onclick=async()=>{
+  if(!SY.token)return;
+  try{await navigator.clipboard.writeText(SY.token)}
+  catch(e){const el=$('syncSavedTok'),prev=el.style.webkitTextSecurity;el.style.webkitTextSecurity='none';el.select();document.execCommand('copy');el.style.webkitTextSecurity=prev}
+  toast('📋 Đã sao chép mã đồng bộ');
+};
 $('syncClose').onclick=()=>$('syncModal').classList.remove('show');
 $('syncGo').onclick=async()=>{const t=$('syncTok').value.trim();if(!t)return toast('Hãy dán token');SY={token:t};saveSY();await sync();
   if($('syncSt').textContent.startsWith('✓')){toast('☁️ Đã kết nối đồng bộ');$('syncBtn').click()}else{SY={};saveSY()}};
