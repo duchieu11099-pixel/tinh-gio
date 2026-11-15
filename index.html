@@ -874,12 +874,12 @@ function renderOverview(grp){
     {f:'wait',col:'var(--pri2)',lbl:'Đang chạy / Chờ',ico:'⚡',val:runningCnt+(pausedCnt?` <span style="font-size:14px;color:var(--mut)">(+${pausedCnt} dừng)</span>`:''),sub:nearestWait?'Gần nhất: '+fmtShort(remaining(nearestWait)):'Chưa có mục đang chạy'},
     {f:'mile',col:'var(--mile)',lbl:`Sắp chạm mốc ${S.settings.mileH}h`,ico:'🚩',val:mileArr.length,sub:nearestMile?'Còn '+fmtShort(mileInfo(nearestMile).left):`Báo trước ${S.settings.leadH}h`},
     {f:'judge',col:'var(--warn)',lbl:'Cần đánh giá',ico:'⚖️',val:judgeArr.length,sub:judgeArr.length?'Đã hoàn thành thời gian!':'Không có mục tồn đọng'},
-    {f:'check',col:'var(--ok)',lbl:'Điểm danh hôm nay',ico:'📋',val:`${doneToday.length}/${checkArr.length}`,sub:pendToday.length?`Còn ${pendToday.length} mục cần điểm danh`:(checkArr.length?'Đã xong hôm nay ✓':'Chưa có mục điểm danh')},
+    {f:'check',pending:true,col:'var(--ok)',lbl:'Điểm danh hôm nay',ico:'📋',val:`${doneToday.length}/${checkArr.length}`,sub:pendToday.length?`Còn ${pendToday.length} mục cần điểm danh`:(checkArr.length?'Đã xong hôm nay ✓':'Chưa có mục điểm danh')},
     {f:'check',col:'var(--nuoi)',lbl:'Đang Nuôi & Chuỗi',ico:'🌱',val:checkArr.length,sub:nuoiCnt?`${nuoiCnt} mục Nuôi (14n) · ${checkArr.length-nuoiCnt} mục thường`:'Theo dõi thói quen mỗi ngày'},
     {f:'hist',col:'#a855f7',lbl:'Tổng giờ & Lịch sử',ico:'🏆',val:totalH+'h',sub:`${reachedMileCnt} đạt mốc · Hoàn tất ${okHist}/${histArr.length} (${winRate})`}
   ];
   $('kpiGrid').innerHTML=kpis.map(k=>`
-    <div class="kpi ${FILT===k.f?'active':''}" style="--kpi-col:${k.col}" data-kf="${k.f}">
+    <div class="kpi ${FILT===k.f?'active':''}" style="--kpi-col:${k.col}" data-kf="${k.f}" ${k.pending?'data-pending="1"':''}>
       <div class="kpi-top"><span class="kpi-lbl">${k.lbl}</span><span class="kpi-ico">${k.ico}</span></div>
       <div class="kpi-val">${k.val}</div>
       <div class="kpi-sub" title="${esc(k.sub)}">${k.sub}</div>
@@ -1159,8 +1159,34 @@ $('sortSel').onchange=e=>{SORT=e.target.value;render()};
 $('kpiGrid').onclick=e=>{
   const box=e.target.closest('[data-kf]');if(!box)return;
   const f=box.dataset.kf;
+  if(box.dataset.pending){
+    FILT='check';
+    render();
+    const pends=S.timers.filter(t=>t.state==='success'&&!t.streakDone&&dayIdx(t)>=0&&t.checkins[dayIdx(t)]===null);
+    setTimeout(()=>{
+      if(pends.length){
+        const first=document.getElementById('card-'+pends[0].id);
+        if(first)first.scrollIntoView({behavior:'smooth',block:'center'});
+        pends.forEach(t=>{
+          const el=document.getElementById('card-'+t.id);
+          if(el)el.animate([{boxShadow:'0 0 0 4px var(--ok)'},{boxShadow:'none'}],{duration:1400});
+        });
+      }else{
+        const sec=document.getElementById('sec-check')||$('tabs');
+        sec.scrollIntoView({behavior:'smooth',block:'start'});
+        toast('✓ Hôm nay bạn đã điểm danh hết rồi!');
+      }
+    },40);
+    return;
+  }
   FILT=FILT===f?'all':f;
   render();
+  if(FILT!=='all'){
+    setTimeout(()=>{
+      const sec=document.getElementById('sec-'+FILT)||$('tabs');
+      sec.scrollIntoView({behavior:'smooth',block:'start'});
+    },40);
+  }
 };
 
 $('alertZone').onclick=e=>{
