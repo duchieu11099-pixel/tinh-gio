@@ -1252,12 +1252,16 @@ $('notifBtn').onclick=async()=>{if(!('Notification'in window))return toast('Thi�
 
 // ===== Sao lưu / Khôi phục tệp JSON (Bảo vệ dữ liệu tuyệt đối) =====
 $('expBtn').onclick=()=>{
-  const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const data={...S,timers:Array.isArray(S.timers)?S.timers:[]};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
+  a.href=url;
   a.download='tinh-gio-backup-'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(a.href);
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),5000);
   toast('💾 Đã tải xuống bản sao lưu JSON');
 };
 $('impBtn').onclick=()=>$('impFile').click();
@@ -1266,14 +1270,22 @@ $('impFile').onchange=e=>{
   const r=new FileReader();
   r.onload=()=>{
     try{
-      const d=JSON.parse(r.result);
-      if(!d||!Array.isArray(d.timers))throw new Error('File không đúng định dạng');
+      const raw=String(r.result||'').replace(/^\uFEFF/,'').trim();
+      if(!raw)throw new Error('File trống (0 byte)');
+      let d=JSON.parse(raw);
+      if(typeof d==='string')d=JSON.parse(d);
+      if(Array.isArray(d))d={timers:d};
+      if(d&&d.files&&d.files['tinhgio-data.json']&&d.files['tinhgio-data.json'].content){
+        d=JSON.parse(d.files['tinhgio-data.json'].content);
+      }
+      if(d&&typeof d==='object'&&!d.timers&&d.settings)d.timers=[];
+      if(!d||!Array.isArray(d.timers))throw new Error('File không đúng định dạng (thiếu danh sách timers)');
       stamp();S=merge(d);cfg();localStorage.setItem(KEY,JSON.stringify(S));rebuildSnap();save();render();
       toast('✅ Đã gộp dữ liệu sao lưu an toàn ('+S.timers.length+' mục)');
     }catch(err){toast('⚠️ Lỗi đọc file: '+err.message)}
     e.target.value='';
   };
-  r.readAsText(f);
+  r.readAsText(f,'UTF-8');
 };
 
 // ===== Đồng bộ qua GitHub Gist bí mật =====
