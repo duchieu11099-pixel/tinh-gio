@@ -183,8 +183,10 @@ header{
 }
 .ov-item:hover{border-color:var(--pri);background:rgba(30,42,82,.9)}
 .ov-row1{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
-.ov-name{font-size:13.5px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.ov-name{font-size:13.5px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:6px;flex:1;min-width:0}
+.ov-name-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ov-meta{font-size:12px;font-variant-numeric:tabular-nums;color:var(--txt2);font-weight:600;white-space:nowrap}
+.ov-mob-tabs{display:none}
 .ov-bar-wrap{
   position:relative;height:8px;background:#0b1022;border-radius:999px;overflow:visible;
   border:1px solid rgba(255,255,255,.06);
@@ -396,11 +398,11 @@ input:focus,select:focus{border-color:var(--pri);box-shadow:0 0 0 3px rgba(124,9
   display:flex;align-items:center;justify-content:space-between;
   font-size:12px;color:var(--txt2);margin-top:10px;font-weight:600;
 }
-.days{display:grid;grid-template-columns:repeat(auto-fill,minmax(48px,1fr));gap:6px;margin-top:7px}
+.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-top:7px}
 .day{
   cursor:pointer;user-select:none;text-align:center;padding:7px 2px;
   border-radius:10px;background:#0b1126;border:1px solid var(--border);
-  font-size:11.5px;transition:.15s;font-weight:600;
+  font-size:11.5px;transition:.15s;font-weight:600;touch-action:manipulation;
 }
 .day:hover:not(.f){border-color:var(--pri2);transform:translateY(-1px)}
 .day.d{background:#10b98128;border-color:var(--ok);color:#86efac}
@@ -438,18 +440,128 @@ input:focus,select:focus{border-color:var(--pri);box-shadow:0 0 0 3px rgba(124,9
 .pulse{animation:pl 1.4s infinite}
 @keyframes pl{50%{box-shadow:0 0 0 6px rgba(16,185,129,.28)}}
 
-/* Responsive */
+/* Responsive (PC > 960px giữ nguyên hoàn toàn, tối ưu sâu cho Android & Mobile) */
+button,.tab,.kpi,.ov-item,.preset-chip{touch-action:manipulation}
 @media(max-width:960px){
   .kpi-grid{grid-template-columns:repeat(3,1fr)}
   .ov-body{grid-template-columns:1fr}
 }
-@media(max-width:600px){
-  .kpi-grid{grid-template-columns:repeat(2,1fr)}
-  .add{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:640px){
+  body{
+    background-attachment:scroll;
+    padding-bottom:calc(28px + env(safe-area-inset-bottom));
+  }
+  .wrap{padding:10px 10px}
+  header{
+    padding:10px 12px;margin-bottom:11px;gap:8px;border-radius:15px;
+  }
+  .brand{gap:9px;flex:1;min-width:0}
+  .brand-logo{width:34px;height:34px;border-radius:10px;font-size:17px;flex:none}
+  .brand h1{font-size:16.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .brand-sub{font-size:11px;line-height:1.3}
+  .hdr-right{
+    width:100%;display:grid;grid-template-columns:1fr auto auto auto;gap:6px;
+    padding-top:6px;border-top:1px solid rgba(255,255,255,.06);
+  }
+  .sync-pill{justify-content:center;padding:7px 10px;font-size:12px}
+  .ibtn{padding:7px 10px;font-size:12.5px;border-radius:10px;justify-content:center}
+
+  /* Alert Banner gọn trên điện thoại */
+  .alert-Zone{gap:8px;margin-bottom:11px}
+  .alert-bar{padding:10px 12px;font-size:12.5px;gap:8px;border-radius:12px}
+  .alert-acts{width:100%;display:flex;gap:6px}
+  .alert-acts .btn{flex:1;padding:8px 10px;font-size:12px}
+
+  /* 6 KPI xếp 3 cột x 2 hàng siêu gọn, nhìn trọn trong 1 tầm mắt */
+  .kpi-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:7px;margin-bottom:12px;
+  }
+  .kpi{padding:9px 9px;border-radius:13px}
+  .kpi-top{margin-bottom:3px;gap:4px}
+  .kpi-lbl{font-size:10.5px;line-height:1.15}
+  .kpi-ico{width:21px;height:21px;font-size:12px;border-radius:6px;flex:none}
+  .kpi-val{font-size:17.5px}
+  .kpi-sub{font-size:10px;margin-top:2px}
+
+  /* Bảng Quan Sát Tổng Thể có thanh chuyển tab nhanh trên Android */
+  .ov-panel{padding:12px;margin-bottom:12px;border-radius:15px}
+  .ov-title{font-size:14px;gap:7px;flex-wrap:wrap}
+  .ov-badge{font-size:10.5px;padding:2px 8px}
+  .ov-body{margin-top:10px;padding-top:10px;gap:10px}
+  .ov-mob-tabs{
+    display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;
+    background:#090e1f;padding:4px;border-radius:11px;border:1px solid var(--border);
+  }
+  .ov-mob-tab{
+    text-align:center;padding:6px 4px;font-size:12px;font-weight:700;
+    color:var(--mut);border-radius:8px;cursor:pointer;
+  }
+  .ov-mob-tab.on{background:var(--pri);color:#fff}
+  .ov-col{padding:10px;border-radius:12px}
+  .ov-col.mob-hide{display:none}
+  .ov-list{max-height:230px}
+  .ov-item{padding:8px 9px}
+  .ov-name{font-size:13px}
+  .ov-row2{font-size:11px;flex-wrap:wrap}
+
+  /* Khung Thêm Mục Mới chuẩn cảm ứng */
+  .add-card{padding:12px;border-radius:15px;margin-bottom:12px}
+  .add-hdr{flex-direction:column;align-items:flex-start;gap:8px;margin-bottom:10px}
+  .presets{
+    width:100%;overflow-x:auto;flex-wrap:nowrap;margin-bottom:2px;padding-bottom:2px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .presets::-webkit-scrollbar{height:0}
+  .preset-chip{white-space:nowrap;flex:none;padding:6px 11px}
+  .add{grid-template-columns:1fr 1fr 1fr;gap:8px}
   .add .nm{grid-column:1/-1}
-  .add-row2{grid-template-columns:1fr}
-  .search-box input{width:140px}
-  .cards-wrap.grid-v{grid-template-columns:1fr}
+  .add-row2{grid-template-columns:1fr;gap:8px}
+  input,select{font-size:16px;padding:9px 11px;border-radius:10px}
+
+  /* Thanh công cụ 2 hàng gọn gàng */
+  .toolbar{padding:8px 9px;gap:8px;border-radius:13px;margin:8px 0 12px}
+  .tabs{width:100%;min-width:100%;gap:5px;-webkit-overflow-scrolling:touch}
+  .tab{padding:6px 11px;font-size:12.5px}
+  .tools-right{
+    width:100%;display:grid;grid-template-columns:1fr auto auto;gap:6px;
+  }
+  .search-box{width:100%}
+  .search-box input{width:100%;font-size:13px;padding:7px 10px 7px 28px}
+  .sort-sel{font-size:12px;padding:7px 8px;max-width:132px}
+  .vbar #vGrid{display:none}
+  .vbar .tab{padding:5px 9px;font-size:12px}
+
+  /* Thẻ chi tiết & Lưới 7 ngày điểm danh vừa khít màn hình dọc */
+  .cards-wrap.grid-v{grid-template-columns:1fr;gap:10px}
+  .cards-wrap{gap:10px}
+  .card{padding:13px;border-radius:15px}
+  .timer{gap:11px}
+  .ring{width:68px;height:68px}
+  .ring svg{width:68px;height:68px}
+  .ring span{font-size:12px}
+  .name{font-size:15.5px}
+  .time{font-size:19.5px}
+  .sub{font-size:12px}
+  .meta-pills{gap:5px;margin-top:8px}
+  .mpill{font-size:11px;padding:3px 7px}
+  .days{grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+  .day{padding:6px 1px;font-size:11px;border-radius:8px}
+  .acts{gap:6px;margin-top:10px;padding-top:9px}
+  .acts .btn{flex:1 1 auto;padding:8px 10px;font-size:12.5px;min-height:36px}
+  .acts .btn.ok,.acts .btn[data-a="resume"]{flex:1 1 100%}
+
+  /* Modal dạng Bottom Sheet trên Android */
+  .modal{align-items:flex-end;padding:0}
+  .modal .card{
+    max-width:100%;border-radius:20px 20px 0 0;
+    padding:16px 15px calc(18px + env(safe-area-inset-bottom));
+    max-height:88vh;
+  }
+  .toast{
+    width:calc(100% - 28px);max-width:380px;text-align:center;
+    bottom:calc(16px + env(safe-area-inset-bottom));font-size:13px;padding:11px 14px;
+  }
 }
 </style>
 </head>
@@ -492,14 +604,19 @@ input:focus,select:focus{border-color:var(--pri);box-shadow:0 0 0 3px rgba(124,9
       <span class="sub" id="ovToggleTxt" style="font-weight:600">Thu gọn ▲</span>
     </div>
     <div class="ov-body" id="ovBody">
-      <div class="ov-col">
+      <div class="ov-mob-tabs" id="ovMobTabs">
+        <div class="ov-mob-tab on" data-om="all">Tất cả</div>
+        <div class="ov-mob-tab" data-om="run">⚡ Đếm giờ</div>
+        <div class="ov-mob-tab" data-om="check">📋 Điểm danh</div>
+      </div>
+      <div class="ov-col" id="ovColRun">
         <div class="ov-col-hdr">
           <span>⚡ Tiến độ Đếm Giờ & Cột Mốc</span>
           <span class="sub" id="ovRunSub"></span>
         </div>
         <div class="ov-list" id="ovRunList"></div>
       </div>
-      <div class="ov-col">
+      <div class="ov-col" id="ovColCheck">
         <div class="ov-col-hdr">
           <span>📋 Chuỗi Điểm Danh & Nuôi Hằng Ngày</span>
           <span class="sub" id="ovCheckSub"></span>
@@ -806,13 +923,14 @@ function judge(ok){
   judging=null;save();render();setTimeout(askResult,300);
 }
 
-function ring(p,c){const r=35,L=2*Math.PI*r;return`<svg width="82" height="82"><circle cx="41" cy="41" r="${r}" stroke="#1f2a52" stroke-width="7.5" fill="none"/><circle cx="41" cy="41" r="${r}" stroke="${c}" stroke-width="7.5" fill="none" stroke-linecap="round" stroke-dasharray="${L}" stroke-dashoffset="${L*(1-Math.min(1,Math.max(0,p)))}"/></svg>`}
+function ring(p,c){const r=35,L=2*Math.PI*r;return`<svg width="82" height="82" viewBox="0 0 82 82"><circle cx="41" cy="41" r="${r}" stroke="#1f2a52" stroke-width="7.5" fill="none"/><circle cx="41" cy="41" r="${r}" stroke="${c}" stroke-width="7.5" fill="none" stroke-linecap="round" stroke-dasharray="${L}" stroke-dashoffset="${L*(1-Math.min(1,Math.max(0,p)))}"/></svg>`}
 
 // ===== UI STATE =====
-let FILT='all', SEARCH='', SORT='def';
+let FILT='all', SEARCH='', SORT='def', OV_TAB='all';
 let VIEW=localStorage.getItem('tinhgio_view')||'g';
 let OV_OPEN=localStorage.getItem('tinhgio_ov')!=='0';
-let ADD_OPEN=localStorage.getItem('tinhgio_add')!=='0';
+const savedAdd=localStorage.getItem('tinhgio_add');
+let ADD_OPEN=savedAdd!==null?savedAdd!=='0':(window.innerWidth>640||!S.timers.length);
 const OPEN=new Set();
 
 function renderOverview(grp){
@@ -900,6 +1018,9 @@ function renderOverview(grp){
   $('ovCountBadge').textContent=`${activeTimers.length} đếm giờ · ${checkArr.length} điểm danh`;
   $('ovBody').classList.toggle('hide',!OV_OPEN);
   $('ovToggleTxt').textContent=OV_OPEN?'Thu gọn ▲':'Mở rộng ▼';
+  $('ovColRun').classList.toggle('mob-hide',OV_TAB==='check');
+  $('ovColCheck').classList.toggle('mob-hide',OV_TAB==='run');
+  document.querySelectorAll('[data-om]').forEach(el=>el.classList.toggle('on',el.dataset.om===OV_TAB));
 
   if(!OV_OPEN)return;
 
@@ -920,8 +1041,8 @@ function renderOverview(grp){
         `<button class="btn gh sm" data-ov-act="pause" data-id="${t.id}">⏸</button>`;
       return `<div class="ov-item" data-ov-id="${t.id}">
         <div class="ov-row1">
-          <div class="ov-name">${esc(t.name)} ${stBadge}</div>
-          <div style="display:flex;align-items:center;gap:6px">
+          <div class="ov-name"><span class="ov-name-txt">${esc(t.name)}</span> ${stBadge}</div>
+          <div style="display:flex;align-items:center;gap:6px;flex:none">
             <span class="ov-meta" data-ov-pct="${t.id}">${pctS(el/t.dur)}</span>
             ${quickBtn}
           </div>
@@ -953,10 +1074,10 @@ function renderOverview(grp){
       return `<div class="ov-item" data-ov-id="${t.id}">
         <div class="ov-row1">
           <div class="ov-name">
-            ${esc(t.name)}
+            <span class="ov-name-txt">${esc(t.name)}</span>
             ${t.nuoi?'<span class="badge b-nuoi">🌱 Nuôi 14n</span>':'<span class="badge b-ok">Điểm danh</span>'}
           </div>
-          <div style="display:flex;align-items:center;gap:6px">
+          <div style="display:flex;align-items:center;gap:6px;flex:none">
             <span class="ov-meta">${done}/${tot} ngày</span>
             ${canCheck?`<button class="btn ok sm pulse" data-ov-act="check" data-id="${t.id}">✅ Điểm danh</button>`:(t.checkStart>today()?`<span class="badge b-pause">⏳ Từ ngày mai</span>`:`<span class="badge b-ok">Hôm nay ✓</span>`)}
           </div>
@@ -1207,6 +1328,8 @@ $('alertZone').onclick=e=>{
 };
 
 $('ovBody').onclick=e=>{
+  const om=e.target.closest('[data-om]');
+  if(om){OV_TAB=om.dataset.om;return render()}
   const btn=e.target.closest('[data-ov-act]');
   if(btn){e.stopPropagation();return act(btn.dataset.id,btn.dataset.ovAct)}
   const row=e.target.closest('[data-ov-id]');
