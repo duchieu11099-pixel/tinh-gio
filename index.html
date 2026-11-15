@@ -23,7 +23,7 @@ input,select{background:#0e1430;border:1px solid #2a3560;color:var(--txt);border
 input:focus{border-color:var(--pri)}
 .btn{border:0;border-radius:12px;padding:11px 16px;font-weight:600;cursor:pointer;color:#fff;background:linear-gradient(90deg,var(--pri),#5b8cff);font-size:15px}
 .btn.full{width:100%;margin-top:10px}
-.btn.ok{background:var(--ok)}.btn.bad{background:var(--bad)}.btn.gh{background:#26305a}
+.btn.ok{background:var(--ok)}.btn.bad{background:var(--bad)}.btn.warn{background:var(--warn)}.btn.gh{background:#26305a}
 .lbl{font-size:12px;color:var(--mut);margin:4px 0}
 .tabs{display:flex;gap:6px;margin:6px 0 14px;overflow-x:auto}
 .tab{padding:8px 14px;border-radius:999px;background:var(--card);border:1px solid #2a3560;color:var(--mut);cursor:pointer;white-space:nowrap;font-size:14px}
@@ -113,9 +113,10 @@ input:focus{border-color:var(--pri)}
 
 <div class="modal" id="resModal"><div class="card">
   <h3 id="resTitle">Đã hết giờ!</h3>
-  <p class="sub" style="margin:8px 0 14px">Bạn đã hoàn thành mục tiêu này chưa? Nếu thành công, bạn sẽ phải điểm danh trong <b id="resDays">5</b> ngày tiếp theo.</p>
-  <div style="display:flex;gap:8px">
+  <p class="sub" style="margin:8px 0 14px">Bạn đã hoàn thành mục tiêu này chưa? Thành công sẽ điểm danh <b id="resDays">5</b> ngày, hoặc chọn <b>Nuôi</b> để điểm danh <b>14</b> ngày.</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
     <button class="btn bad" style="flex:1" id="resBad">✗ Thất bại</button>
+    <button class="btn warn" style="flex:1" id="resNuoi">🌱 Nuôi (14 ngày)</button>
     <button class="btn ok" style="flex:1" id="resOk">✓ Thành công</button>
   </div>
   <button class="btn full gh" id="resLater">⏳ Để sau — tiếp tục đếm phần vượt chỉ tiêu</button>
@@ -265,7 +266,7 @@ function act(id,a,arg){
     const d=prompt('Chỉ tiêu (giờ hoặc giờ:phút):',fmtIn(t.dur));if(d===null)return;
     const dur=parseDur(d);if(isNaN(dur)||dur<=0)return toast('Chỉ tiêu không hợp lệ');
     t.dur=dur;setProgress(t,el);toast('Đã cập nhật: '+pctS(el/dur));save();render();if(t.state==='done')askResult(t);return}
-  else if(a==='reset'){unschedule(t);delete t.el;t.later=false;t.state='running';t.endAt=Date.now()+t.dur;t.warned=false;t.mWarned=t.mReached=false;delete t.result;delete t.checkins;delete t.streakDone;schedule(t)}
+  else if(a==='reset'){unschedule(t);delete t.el;t.later=false;t.state='running';t.endAt=Date.now()+t.dur;t.warned=false;t.mWarned=t.mReached=false;delete t.result;delete t.checkins;delete t.streakDone;delete t.nuoi;schedule(t)}
   else if(a==='del'){if(!confirm('Xoá "'+t.name+'"?'))return;unschedule(t);S.deleted=S.deleted||{};S.deleted[t.id]=Date.now();S.timers=S.timers.filter(x=>x!==t)}
   else if(a==='finish'){t.el=elapsed(t);t.state='done';t.doneAt=Date.now();unschedule(t);save();render();return askResult(t)}
   else if(a==='check'){const i=dayIdx(t);if(i<0||t.checkins[i]!==null)return;t.checkins[i]=true;toast('✅ Đã điểm danh ngày '+(i+1)+'/'+t.checkins.length);
@@ -287,8 +288,9 @@ function askResult(t){
 }
 function judge(ok){
   const t=judging;if(!t)return;$('resModal').classList.remove('show');t.el=elapsed(t);t.later=false;unschedule(t);
-  if(ok){t.state='success';t.checkStart=today();t.checkins=Array(S.settings.days).fill(null);toast('🎉 Thành công! Hãy điểm danh '+S.settings.days+' ngày')}
-  else{t.state='failed';toast('Đã ghi nhận thất bại')}
+  if(ok==='nuoi'){t.state='success';t.nuoi=true;t.checkStart=today();t.checkins=Array(14).fill(null);toast('🌱 Bắt đầu nuôi! Hãy điểm danh 14 ngày')}
+  else if(ok){t.state='success';delete t.nuoi;t.checkStart=today();t.checkins=Array(S.settings.days).fill(null);toast('🎉 Thành công! Hãy điểm danh '+S.settings.days+' ngày')}
+  else{t.state='failed';delete t.nuoi;toast('Đã ghi nhận thất bại')}
   judging=null;save();render();setTimeout(askResult,300);
 }
 
@@ -321,7 +323,7 @@ function card(t){{
     else if(t.state==='failed'){badge='<span class="badge b-bad">Thất bại</span>';col='var(--bad)';acts=`<button class="btn gh" data-a="reset">↻ Làm lại</button>`}
     else if(t.state==='success'){
       const i=dayIdx(t),done=t.checkins.filter(c=>c).length;col='var(--ok)';
-      badge=t.streakDone?`<span class="badge b-ok">Hoàn tất ${done}/${t.checkins.length}</span>`:'<span class="badge b-ok">Thành công</span>';
+      badge=t.streakDone?`<span class="badge b-ok">Hoàn tất ${done}/${t.checkins.length}</span>`:t.nuoi?'<span class="badge b-done">🌱 Nuôi</span>':'<span class="badge b-ok">Thành công</span>';
       extra='<div class="days">'+t.checkins.map((c,k)=>{const dt=new Date(t.checkStart+k*DAY);return`<div class="day ${c===true?'d':c===false?'m':''} ${k===i?'t':''} ${dt.getTime()>today()?'f':''}" data-a="day" data-k="${k}" title="Bấm để điểm danh">${c===true?'✓':c===false?'✗':'○'}<br>${dt.getDate()}/${dt.getMonth()+1}</div>`}).join('')+'</div>';
       if(i>=0&&t.checkins[i]===null)acts=`<button class="btn ok pulse" data-a="check">✅ Điểm danh hôm nay (ngày ${i+1}/${t.checkins.length})</button>`;
             else if(!t.streakDone)extra+=`<div class="sub" style="margin-top:6px">Hôm nay đã điểm danh ✓</div>`;
@@ -354,7 +356,7 @@ $('list').onclick=e=>{if(e.target.closest('[data-tog]')){S.histOpen=!S.histOpen;
   if(!b&&VIEW==='c'){const c=e.target.closest('[data-id]');if(c){const id=c.dataset.id;OPEN.has(id)?OPEN.delete(id):OPEN.add(id);return render()}}
   if(b)act(b.closest('[data-id]').dataset.id,b.dataset.a,b.dataset.k)};
 $('resLater').onclick=()=>{if(judging){judging.later=true;save();render()}judging=null;$('resModal').classList.remove('show')};
-$('resOk').onclick=()=>judge(true);$('resBad').onclick=()=>judge(false);
+$('resOk').onclick=()=>judge(true);$('resNuoi').onclick=()=>judge('nuoi');$('resBad').onclick=()=>judge(false);
 
 // Cài đặt — bắt buộc tick xác nhận hoàn thành trước khi lưu
 $('setBtn').onclick=()=>{const s=S.settings;$('sSound').checked=s.sound;$('sVib').checked=s.vib;$('sWarn').value=s.warn;$('sCheckTime').value=s.checkTime;$('sDays').value=s.days;$('sMile').value=s.mileH;$('sLead').value=s.leadH;$('sNtfy').value=s.ntfy;$('sConfirm').checked=false;$('setModal').classList.add('show')};
