@@ -523,7 +523,7 @@ input:focus,select:focus{border-color:var(--pri);box-shadow:0 0 0 3px rgba(124,9
       </div>
     </div>
     <div class="add">
-      <div class="nm"><div class="lbl">Tên mục tiêu / công việc</div><input id="nName" type="text" autocomplete="off" placeholder="VD: Học tiếng Anh, Dự án A..."></div>
+      <div class="nm"><div class="lbl">Tên mục tiêu / công việc</div><input id="nName" name="tg-timer-name" type="text" readonly onfocus="this.removeAttribute('readonly')" autocomplete="one-time-code" data-lpignore="true" data-1p-ignore data-form-type="other" autocorrect="off" spellcheck="false" placeholder="VD: Học tiếng Anh, Dự án A..."></div>
       <div><div class="lbl">Giờ</div><input id="nH" type="number" min="0" value="0"></div>
       <div><div class="lbl">Phút</div><input id="nM" type="number" min="0" value="0"></div>
       <div><div class="lbl">Giây</div><input id="nS" type="number" min="0" value="0"></div>
@@ -543,7 +543,7 @@ input:focus,select:focus{border-color:var(--pri);box-shadow:0 0 0 3px rgba(124,9
     <div class="tools-right">
       <div class="search-box">
         <span>🔍</span>
-        <input id="qSearch" type="text" autocomplete="off" placeholder="Tìm tên mục...">
+        <input id="qSearch" name="tg-search-query" type="search" readonly onfocus="this.removeAttribute('readonly')" autocomplete="one-time-code" data-lpignore="true" data-1p-ignore data-form-type="other" autocorrect="off" spellcheck="false" placeholder="Tìm tên mục...">
       </div>
       <select class="sort-sel" id="sortSel" title="Sắp xếp">
         <option value="def">Sắp xếp: Ưu tiên</option>
@@ -602,7 +602,7 @@ input:focus,select:focus{border-color:var(--pri);box-shadow:0 0 0 3px rgba(124,9
     <p class="sub" style="line-height:1.5">Dữ liệu được lưu vào 1 Gist <b>bí mật</b> trên GitHub của bạn. Làm 1 lần trên <b>mỗi máy</b>:<br>
     1. <a href="https://github.com/settings/tokens/new?scopes=gist&description=App%20Tinh%20Gio" target="_blank" style="color:var(--pri2)">Bấm vào đây để tạo token</a> (chỉ tick quyền <b>gist</b>, chọn hạn "No expiration") → Generate → copy.<br>
     2. Dán token vào ô dưới và bấm Kết nối. Có thể dùng cùng 1 token cho mọi máy.</p>
-    <input id="syncTok" type="password" placeholder="ghp_..." style="width:100%;margin-top:10px" autocomplete="off">
+    <input id="syncTok" name="tg-sync-token" type="text" readonly onfocus="this.removeAttribute('readonly')" autocomplete="new-password" data-lpignore="true" data-1p-ignore data-form-type="other" placeholder="ghp_..." style="width:100%;margin-top:10px;-webkit-text-security:disc">
     <button class="btn full" id="syncGo">Kết nối</button>
   </div>
   <div id="syncOn" style="display:none">
