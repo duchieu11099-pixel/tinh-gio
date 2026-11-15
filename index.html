@@ -631,7 +631,8 @@ function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d)return d}
   return{timers:[],settings:{sound:true,vib:true,warn:0,checkTime:'20:00'},filter:'all'}}
 function cfg(){
   S.settings=S.settings||{sound:true,vib:true,warn:0,checkTime:'20:00'};
-  S.settings.days=S.settings.days||5;
+  if(!S.v21Days7){if(!S.settings.days||S.settings.days===5)S.settings.days=7;S.v21Days7=true}
+  S.settings.days=S.settings.days||7;
   if(S.settings.mileH==null)S.settings.mileH=130;
   if(S.settings.leadH==null)S.settings.leadH=15;
   if(!S.settings.ntfy)S.settings.ntfy="tinhgio-"+Array.from(crypto.getRandomValues(new Uint8Array(10)),x=>"abcdefghijklmnopqrstuvwxyz0123456789"[x%36]).join("");
@@ -792,7 +793,7 @@ function askResult(t){
 function judge(ok){
   const t=judging;if(!t)return;$('resModal').classList.remove('show');t.el=elapsed(t);t.later=false;unschedule(t);
   if(ok==='nuoi'){t.state='success';t.nuoi=true;t.checkStart=today();t.checkins=Array(14).fill(null);toast('🌱 Bắt đầu nuôi! Hãy điểm danh 14 ngày')}
-  else if(ok){t.state='success';delete t.nuoi;t.checkStart=today();t.checkins=Array(S.settings.days).fill(null);toast('🎉 Thành công! Hãy điểm danh '+S.settings.days+' ngày')}
+  else if(ok){t.state='success';delete t.nuoi;t.checkStart=today()+DAY;t.checkins=Array(S.settings.days).fill(null);toast('🎉 Thành công! Điểm danh '+S.settings.days+' ngày bắt đầu từ ngày mai')}
   else{t.state='failed';delete t.nuoi;toast('Đã ghi nhận thất bại')}
   judging=null;save();render();setTimeout(askResult,300);
 }
@@ -874,7 +875,7 @@ function renderOverview(grp){
     {f:'wait',col:'var(--pri2)',lbl:'Đang chạy / Chờ',ico:'⚡',val:runningCnt+(pausedCnt?` <span style="font-size:14px;color:var(--mut)">(+${pausedCnt} dừng)</span>`:''),sub:nearestWait?'Gần nhất: '+fmtShort(remaining(nearestWait)):'Chưa có mục đang chạy'},
     {f:'mile',col:'var(--mile)',lbl:`Sắp chạm mốc ${S.settings.mileH}h`,ico:'🚩',val:mileArr.length,sub:nearestMile?'Còn '+fmtShort(mileInfo(nearestMile).left):`Báo trước ${S.settings.leadH}h`},
     {f:'judge',col:'var(--warn)',lbl:'Cần đánh giá',ico:'⚖️',val:judgeArr.length,sub:judgeArr.length?'Đã hoàn thành thời gian!':'Không có mục tồn đọng'},
-    {f:'check',pending:true,col:'var(--ok)',lbl:'Điểm danh hôm nay',ico:'📋',val:`${doneToday.length}/${checkArr.length}`,sub:pendToday.length?`Còn ${pendToday.length} mục cần điểm danh`:(checkArr.length?'Đã xong hôm nay ✓':'Chưa có mục điểm danh')},
+    {f:'check',pending:true,col:'var(--ok)',lbl:'Điểm danh hôm nay',ico:'📋',val:`${doneToday.length}/${doneToday.length+pendToday.length}`,sub:pendToday.length?`Còn ${pendToday.length} mục cần điểm danh`:(doneToday.length?'Đã xong hôm nay ✓':(checkArr.length?'Bắt đầu từ ngày mai':'Chưa có mục điểm danh'))},
     {f:'check',col:'var(--nuoi)',lbl:'Đang Nuôi & Chuỗi',ico:'🌱',val:checkArr.length,sub:nuoiCnt?`${nuoiCnt} mục Nuôi (14n) · ${checkArr.length-nuoiCnt} mục thường`:'Theo dõi thói quen mỗi ngày'},
     {f:'hist',col:'#a855f7',lbl:'Tổng giờ & Lịch sử',ico:'🏆',val:totalH+'h',sub:`${reachedMileCnt} đạt mốc · Hoàn tất ${okHist}/${histArr.length} (${winRate})`}
   ];
@@ -949,7 +950,7 @@ function renderOverview(grp){
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             <span class="ov-meta">${done}/${tot} ngày</span>
-            ${canCheck?`<button class="btn ok sm pulse" data-ov-act="check" data-id="${t.id}">✅ Điểm danh</button>`:`<span class="badge b-ok">Hôm nay ✓</span>`}
+            ${canCheck?`<button class="btn ok sm pulse" data-ov-act="check" data-id="${t.id}">✅ Điểm danh</button>`:(t.checkStart>today()?`<span class="badge b-pause">⏳ Từ ngày mai</span>`:`<span class="badge b-ok">Hôm nay ✓</span>`)}
           </div>
         </div>
         <div class="mini-days">${dots}</div>
@@ -1047,6 +1048,7 @@ function card(t){
       </div>
       <div class="days">${t.checkins.map((c,k)=>{const dt=new Date(t.checkStart+k*DAY);return`<div class="day ${c===true?'d':c===false?'m':''} ${k===i?'t':''} ${dt.getTime()>today()?'f':''}" data-a="day" data-k="${k}" title="Bấm để đổi trạng thái điểm danh">${c===true?'✓':c===false?'✗':'○'}<br>${dt.getDate()}/${dt.getMonth()+1}</div>`}).join('')}</div>`;
     if(i>=0&&t.checkins[i]===null)acts=`<button class="btn ok pulse" data-a="check">✅ Điểm danh hôm nay (ngày ${i+1}/${t.checkins.length})</button>`;
+    else if(t.checkStart>today())extra+=`<div class="sub" style="margin-top:6px;color:#fcd34d">⏳ Bắt đầu điểm danh từ ngày mai (${new Date(t.checkStart).getDate()}/${new Date(t.checkStart).getMonth()+1})</div>`;
     else if(!t.streakDone)extra+=`<div class="sub" style="margin-top:6px;color:#6ee7b7">✓ Hôm nay đã điểm danh đầy đủ</div>`;
     acts+=`<button class="btn gh" data-a="editdays">✎ Số ngày</button><button class="btn gh" data-a="reset">↻ Làm lại</button>`;
   }
@@ -1234,7 +1236,7 @@ $('setBtn').onclick=()=>{const s=S.settings;$('sSound').checked=s.sound;$('sVib'
 $('sCancel').onclick=()=>$('setModal').classList.remove('show');
 $('sSave').onclick=()=>{
   if(!$('sConfirm').checked){$('sConfirm').parentElement.animate([{transform:'translateX(-6px)'},{transform:'translateX(6px)'},{transform:'none'}],{duration:250});return toast('Hãy tick xác nhận hoàn thành trước khi lưu')}
-  S.settings={sound:$('sSound').checked,vib:$('sVib').checked,warn:Math.max(0,+$('sWarn').value||0),checkTime:$('sCheckTime').value||'20:00',ntfy:S.settings.ntfy,mileH:Math.max(1,+$('sMile').value||130),leadH:Math.max(0,+$('sLead').value||0),days:Math.min(60,Math.max(1,parseInt($('sDays').value)||5))};
+  S.settings={sound:$('sSound').checked,vib:$('sVib').checked,warn:Math.max(0,+$('sWarn').value||0),checkTime:$('sCheckTime').value||'20:00',ntfy:S.settings.ntfy,mileH:Math.max(1,+$('sMile').value||130),leadH:Math.max(0,+$('sLead').value||0),days:Math.min(60,Math.max(1,parseInt($('sDays').value)||7))};
   S.settingsAt=Date.now();$('nH').value=S.settings.mileH;S.timers.forEach(t=>{t.mWarned=t.mReached=false;const m=mileInfo(t);if(m&&m.reached)t.mReached=t.mWarned=true;if(m&&m.near)t.mWarned=true;if(t.state==='running')unschedule(t).then(()=>schedule(t))});save();render();$('setModal').classList.remove('show');toast('✅ Đã lưu cài đặt');
 };
 $('notifBtn').onclick=async()=>{if(!('Notification'in window))return toast('Thiết bị không hỗ trợ thông báo');
