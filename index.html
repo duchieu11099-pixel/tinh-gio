@@ -557,7 +557,7 @@ button,.tab,.kpi,.ov-item,.preset-chip{touch-action:manipulation}
       </div>
     </div>
     <div class="hdr-right">
-      <button class="sync-pill" id="syncBtn" title="Đồng bộ đám mây GitHub Gist">
+      <button class="sync-pill" id="syncBtn" title="Đồng bộ đám mây Firebase">
         <span id="syncIcon">☁️</span>
         <span id="syncPillTxt">Đồng bộ</span>
       </button>
@@ -695,24 +695,15 @@ button,.tab,.kpi,.ov-item,.preset-chip{touch-action:manipulation}
   <h3 style="margin-bottom:8px">Đồng bộ & Bảo vệ dữ liệu</h3>
   <p class="sub" id="syncSt" style="margin-bottom:10px">Chưa kết nối</p>
   <div id="syncConn">
-    <p class="sub" style="line-height:1.5">Dữ liệu được lưu vào 1 Gist <b>bí mật</b> trên GitHub của bạn. Làm 1 lần trên <b>mỗi máy</b>:<br>
-    1. <a href="https://github.com/settings/tokens/new?scopes=gist&description=App%20Tinh%20Gio" target="_blank" style="color:var(--pri2)">Bấm vào đây để tạo token</a> (chỉ tick quyền <b>gist</b>, chọn hạn "No expiration") → Generate → copy.<br>
-    2. Dán token vào ô dưới và bấm Kết nối. Có thể dùng cùng 1 token cho mọi máy.</p>
-    <input id="syncTok" name="tg-sync-token" type="text" readonly onfocus="this.removeAttribute('readonly')" autocomplete="new-password" data-lpignore="true" data-1p-ignore data-form-type="other" placeholder="ghp_..." style="width:100%;margin-top:10px;-webkit-text-security:disc">
-    <button class="btn full" id="syncGo">Kết nối</button>
+    <p class="sub" style="line-height:1.5">Dữ liệu được đồng bộ lên <b>Firebase</b> của bạn — mỗi mục một ô riêng, sửa trên máy nào máy kia tự cập nhật, không ghi đè lẫn nhau.<br>
+    Chỉ cần <b>đăng nhập bằng tài khoản Google</b> của bạn, làm 1 lần trên <b>mỗi máy</b>.</p>
+    <button class="btn full" id="syncGo">Đăng nhập bằng Google để đồng bộ</button>
   </div>
   <div id="syncOn" style="display:none">
-    <p class="sub">Tự đồng bộ khi mở app, khi có thay đổi và mỗi 1 phút.</p>
-    <div style="margin-top:10px;padding:10px;border-radius:12px;background:#0b1126;border:1px solid var(--border)">
-      <div class="lbl" style="margin-bottom:6px">Mã đồng bộ hiện tại (dùng để dán sang máy khác):</div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <input id="syncSavedTok" type="text" readonly style="flex:1;font-size:12.5px;padding:8px 10px;-webkit-text-security:disc" autocomplete="off">
-        <button class="btn gh sm" id="syncEye" type="button" title="Hiện / Ẩn mã">👁</button>
-        <button class="btn ok sm" id="syncCopy" type="button">📋 Sao chép</button>
-      </div>
-    </div>
+    <p class="sub" id="syncUser">Đã đăng nhập</p>
+    <p class="sub" style="margin-top:6px">Tự đồng bộ ngay khi có thay đổi và khi mở app.</p>
     <button class="btn full" id="syncNow">↻ Đồng bộ ngay</button>
-    <button class="btn full bad" id="syncOff">Ngắt đồng bộ trên máy này</button>
+    <button class="btn full bad" id="syncOff">Đăng xuất đồng bộ trên máy này</button>
   </div>
   <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
     <div class="lbl" style="margin-bottom:6px">Sao lưu / Khôi phục tệp JSON (An toàn dữ liệu 100%)</div>
@@ -1391,7 +1382,7 @@ $('impFile').onchange=e=>{
   r.readAsText(f,'UTF-8');
 };
 
-// ===== Đồng bộ qua GitHub Gist bí mật =====
+// ===== Đồng bộ qua Firebase (Firestore) =====
 const SK='tinhgio_sync',FN='tinhgio-data.json';let SY=JSON.parse(localStorage.getItem(SK)||'{}');
 const saveSY=()=>localStorage.setItem(SK,JSON.stringify(SY));
 let snap={};const sig=t=>JSON.stringify({...t,updated:0});
@@ -1405,78 +1396,76 @@ function merge(R){
   const rs=(R.settingsAt||0)>(S.settingsAt||0);
   return{...S,timers,deleted:del,settings:rs?R.settings:S.settings,settingsAt:Math.max(R.settingsAt||0,S.settingsAt||0),lastRemind:Math.max(R.lastRemind||0,S.lastRemind||0)};
 }
-async function gh(path,opt={}){const r=await fetch('https://api.github.com'+path,{cache:'no-store',...opt,headers:{Authorization:'Bearer '+SY.token,Accept:'application/vnd.github+json',...(opt.body?{'Content-Type':'application/json'}:{})}});
-  if(!r.ok){let m='';try{m=(await r.json()).message||''}catch(e){}
-    const sc=r.headers.get('x-oauth-scopes');
-    let h='HTTP '+r.status+(m?' — '+m:'');
-    if(r.status===401)h='token sai hoặc đã hết hạn';
-    else if(r.status===403&&sc!==null&&!/gist/.test(sc))h='token chưa có quyền gist (hãy tạo lại và tick ô gist)';
-    else if((r.status===403||r.status===429)&&(/rate limit/i.test(m)||r.headers.get('x-ratelimit-remaining')==='0')){
-      const ra=+r.headers.get('retry-after'),rs=+r.headers.get('x-ratelimit-reset');
-      backoff=ra?Date.now()+ra*1000:rs?rs*1000:Date.now()+10*6e4;backoff=Math.max(backoff,Date.now()+6e4);
-      h='GitHub đang giới hạn tốc độ, app tự thử lại lúc '+new Date(backoff).toLocaleTimeString('vi')}
-    else if(r.status===403&&sc===null)h='token này là loại fine-grained nên không dùng được — hãy tạo "Tokens (classic)" và tick gist';
-    const e=new Error(h);e.status=r.status;throw e}
-  return r.json()}
-async function findGist(){for(let pg=1;pg<=5;pg++){const l=await gh('/gists?per_page=100&page='+pg);const g=l.find(g=>g.files[FN]);if(g)return g.id;if(l.length<100)break}
-  if(S.timers.length){setSt('⚠️ Không tìm thấy dữ liệu đồng bộ cũ — đã dừng để tránh mất dữ liệu trên máy');throw new Error('không tìm thấy gist dữ liệu cũ')}
-  const g=await gh('/gists',{method:'POST',body:JSON.stringify({description:'Dữ liệu app Tính Giờ (đồng bộ)',public:false,files:{[FN]:{content:'{}'}}})});return g.id}
+// Cấu hình Firebase: dán firebaseConfig của dự án vào đây (thay null bằng {...}).
+window.FB_CONFIG={apiKey:"AIzaSyA3xL_APvi4N5xFez_WBRq7xD_31aRFIDM",authDomain:"tinh-40a69.firebaseapp.com",projectId:"tinh-40a69",storageBucket:"tinh-40a69.firebasestorage.app",messagingSenderId:"207013960258",appId:"1:207013960258:web:7ed073401415a2148febdb"};
 const pub=x=>{const{filter,...r}=x;return JSON.stringify(r)};
-let backoff=0,syncing=false,again=false,pushT;
+let FBUser=null,pushT,pushedSnap={},pushedMeta='';
 function setSt(m){
   $('syncSt').textContent=m;
   const pill=$('syncBtn'),ico=$('syncIcon'),txt=$('syncPillTxt');
   pill.classList.remove('ok','err');
-  if(!SY.token){ico.textContent='☁️';txt.textContent='Chưa đồng bộ'}
+  if(!FBUser){ico.textContent='☁️';txt.textContent='Chưa đồng bộ'}
   else if(m.startsWith('⚠')){pill.classList.add('err');ico.textContent='⚠️';txt.textContent='Lỗi đồng bộ'}
   else if(m.startsWith('✓')){pill.classList.add('ok');ico.textContent='☁️';txt.textContent='Đã đồng bộ'}
   else{ico.textContent='⏳';txt.textContent='Đang đồng bộ...'}
 }
-async function sync(){
-  if(!SY.token)return setSt('Chưa kết nối');if(!navigator.onLine)return setSt('📴 Offline — sẽ đồng bộ khi có mạng');
-  if(Date.now()<backoff)return setSt('⏳ GitHub đang giới hạn — tự đồng bộ lại lúc '+new Date(backoff).toLocaleTimeString('vi'));
-  if(syncing){again=true;return}syncing=true;setSt('⏳ Đang đồng bộ...');
-  try{
-    if(!SY.gistId){SY.gistId=await findGist();saveSY()}
-    let g;try{g=await gh('/gists/'+SY.gistId)}catch(e){if(e.status===404){SY.gistId=await findGist();saveSY();g=await gh('/gists/'+SY.gistId)}else throw e}
-    const f=g.files[FN];if(!f)throw new Error('không thấy file dữ liệu');
-    const txt=f.truncated?await(await fetch(f.raw_url,{cache:'no-store'})).text():f.content;
-    const R=JSON.parse(txt||'{}');stamp();const M=merge(R);
-    S=M;cfg();localStorage.setItem(KEY,JSON.stringify(S));rebuildSnap();
-    if(pub(M)!==pub({...R,filter:undefined}))await gh('/gists/'+SY.gistId,{method:'PATCH',body:JSON.stringify({files:{[FN]:{content:pub(M)}}})});
-    SY.last=Date.now();SY.dirty=false;saveSY();setSt('✓ Đã đồng bộ lúc '+new Date().toLocaleTimeString('vi'));render();
-  }catch(e){setSt('⚠️ Lỗi đồng bộ: '+e.message)}
-  syncing=false;if(again){again=false;sync()}
+function metaOf(x){return{settings:x.settings,settingsAt:x.settingsAt||0,deleted:x.deleted||{},lastRemind:x.lastRemind||0}}
+function pushDiff(){
+  if(!FBUser||!window.FBB)return;
+  if(!navigator.onLine){setSt('📴 Offline — sẽ đồng bộ khi có mạng');return}
+  stamp();
+  const jobs=[];
+  S.timers.forEach(t=>{const j=JSON.stringify(t);if(pushedSnap[t.id]!==j){pushedSnap[t.id]=j;jobs.push(FBB.setTimer(FBUser.uid,t))}});
+  for(const id in S.deleted||{})if(pushedSnap[id]!==undefined){delete pushedSnap[id];jobs.push(FBB.delTimer(FBUser.uid,id))}
+  const mj=JSON.stringify(metaOf(S));
+  if(mj!==pushedMeta){pushedMeta=mj;jobs.push(FBB.setMeta(FBUser.uid,metaOf(S)))}
+  if(!jobs.length){if(SY.dirty){SY.dirty=false;saveSY()}return}
+  setSt('⏳ Đang đồng bộ...');
+  Promise.all(jobs).then(()=>{SY.dirty=false;SY.last=Date.now();saveSY();setSt('✓ Đã đồng bộ lúc '+new Date().toLocaleTimeString('vi'))}).catch(e=>setSt('⚠️ Lỗi đồng bộ: '+e.message));
 }
-function pushSoon(){if(!SY.token)return;clearTimeout(pushT);pushT=setTimeout(sync,300)}
-function flushSync(){clearTimeout(pushT);sync()}
+function pushSoon(){if(!FBUser)return;clearTimeout(pushT);pushT=setTimeout(pushDiff,800)}
+function flushSync(){clearTimeout(pushT);pushDiff()}
+function sync(){
+  if(!window.FB_CONFIG)return setSt('Chưa kết nối');
+  if(!FBUser)return setSt('Hãy đăng nhập Google để đồng bộ');
+  pushDiff();
+}
+function applyRemote(R,first){
+  if(first&&!(R.timers||[]).length&&!R.hasMeta&&S.timers.length&&SY.seeded!==FBUser.uid){
+    // Lần đầu đăng nhập mà kho Firebase còn trống: lấy dữ liệu trên máy này làm gốc.
+    SY.seeded=FBUser.uid;saveSY();pushedSnap={};pushedMeta='';pushDiff();
+    setSt('✓ Đã đồng bộ lúc '+new Date().toLocaleTimeString('vi'));return;
+  }
+  const M=merge(R);
+  if(pub(M)!==pub(S)){S=M;cfg();try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}rebuildSnap();render()}
+  pushedSnap={};(R.timers||[]).forEach(t=>pushedSnap[t.id]=JSON.stringify(t));
+  pushedMeta=JSON.stringify(metaOf(R.timers?{settings:R.settings,settingsAt:R.settingsAt,deleted:R.deleted,lastRemind:R.lastRemind}:{settings:S.settings,settingsAt:S.settingsAt,deleted:S.deleted,lastRemind:S.lastRemind}));
+  pushDiff();
+}
+window.FBHooks={
+  signedIn(u){FBUser=u;SY.uid=u.uid;SY.email=u.email||'';saveSY();
+    $('syncConn').style.display='none';$('syncOn').style.display='block';
+    $('syncUser').textContent='Đã đăng nhập: '+(u.email||'');
+    setSt('⏳ Đang đồng bộ...');
+    FBB.subscribe(u.uid,(R,first)=>applyRemote(R,first));},
+  signedOut(){FBUser=null;$('syncConn').style.display='block';$('syncOn').style.display='none';setSt('Chưa kết nối')},
+  error(m){if(m)setSt('⚠️ Lỗi đồng bộ: '+m)}
+};
 $('syncBtn').onclick=()=>{
-  $('syncTok').value='';
-  $('syncConn').style.display=SY.token?'none':'block';
-  $('syncOn').style.display=SY.token?'block':'none';
-  if(SY.token){$('syncSavedTok').value=SY.token;$('syncSavedTok').style.webkitTextSecurity='disc';$('syncEye').textContent='👁'}
+  $('syncConn').style.display=FBUser?'none':'block';
+  $('syncOn').style.display=FBUser?'block':'none';
+  if(FBUser)$('syncUser').textContent='Đã đăng nhập: '+(SY.email||'');
   $('syncModal').classList.add('show');
 };
-$('syncEye').onclick=()=>{
-  const el=$('syncSavedTok'),hidden=el.style.webkitTextSecurity==='disc';
-  el.style.webkitTextSecurity=hidden?'none':'disc';
-  $('syncEye').textContent=hidden?'🙈':'👁';
-};
-$('syncCopy').onclick=async()=>{
-  if(!SY.token)return;
-  try{await navigator.clipboard.writeText(SY.token)}
-  catch(e){const el=$('syncSavedTok'),prev=el.style.webkitTextSecurity;el.style.webkitTextSecurity='none';el.select();document.execCommand('copy');el.style.webkitTextSecurity=prev}
-  toast('📋 Đã sao chép mã đồng bộ');
-};
+$('syncGo').onclick=()=>{if(window.FBB)FBB.signIn();else setSt('⚠️ Chưa tải được thư viện đồng bộ — kiểm tra mạng rồi mở lại app')};
+$('syncNow').onclick=()=>sync();
+$('syncOff').onclick=()=>{if(!confirm('Đăng xuất đồng bộ trên máy này? (dữ liệu trên máy và trên Firebase vẫn giữ nguyên)'))return;if(window.FBB)FBB.signOut();$('syncModal').classList.remove('show')};
 $('syncClose').onclick=()=>$('syncModal').classList.remove('show');
-$('syncGo').onclick=async()=>{const t=$('syncTok').value.trim();if(!t)return toast('Hãy dán token');SY={token:t,gistId:SY.gistId};saveSY();await sync();
-  if($('syncSt').textContent.startsWith('✓')){toast('☁️ Đã kết nối đồng bộ');$('syncBtn').click()}else{SY={};saveSY()}};
-$('syncNow').onclick=sync;
-$('syncOff').onclick=()=>{if(!confirm('Ngắt đồng bộ trên máy này? (dữ liệu trên máy và trên GitHub vẫn giữ nguyên)'))return;SY={};saveSY();setSt('Chưa kết nối');$('syncModal').classList.remove('show')};
-addEventListener('online',sync);setInterval(()=>{if(!document.hidden||SY.dirty)sync()},60000);
+addEventListener('online',()=>pushDiff());
+setInterval(()=>{if(SY.dirty)pushDiff()},60000);
 
 if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){tick();sync()}else flushSync()});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){tick()}else flushSync()});
 addEventListener('pagehide',flushSync);
 
 cfg();
@@ -1489,6 +1478,45 @@ $('addCard').classList.toggle('collapsed',!ADD_OPEN);
 $('toggleAddBtn').textContent=ADD_OPEN?'✕ Ẩn khung thêm':'＋ Thêm mục';
 {const d=$('nDone'),clean=()=>{const v=d.value.replace(/[^0-9:.,]/g,'');if(v!==d.value)d.value=v};['input','change','blur'].forEach(e=>d.addEventListener(e,clean));setInterval(clean,700);clean()}
 rebuildSnap();render();tick();sync();setInterval(tick,500);
+</script>
+
+<script type="module">
+// Cầu nối Firebase (nạp dạng module, lỗi mạng cũng không làm app chính bị sập)
+(async()=>{
+  const cfg=window.FB_CONFIG;
+  if(!cfg)return;
+  try{
+    const V='10.12.2';
+    const appM=await import('https://www.gstatic.com/firebasejs/'+V+'/firebase-app.js');
+    const auM=await import('https://www.gstatic.com/firebasejs/'+V+'/firebase-auth.js');
+    const fsM=await import('https://www.gstatic.com/firebasejs/'+V+'/firebase-firestore.js');
+    const app=appM.initializeApp(cfg);
+    const auth=auM.getAuth(app);
+    const db=fsM.getFirestore(app);
+    try{await fsM.enableIndexedDbPersistence(db)}catch(e){}
+    const clean=o=>JSON.parse(JSON.stringify(o));
+    let T=[],M=null,gotT=false,gotM=false,emitted=false,unsub=[];
+    window.FBB={
+      signIn(){const p=new auM.GoogleAuthProvider();
+        auM.signInWithPopup(auth,p).catch(e=>{
+          if(e.code==='auth/popup-blocked'||e.code==='auth/cancelled-popup-request'||e.code==='auth/operation-not-supported-in-this-environment')auM.signInWithRedirect(auth,p);
+          else FBHooks.error(e.message)})},
+      signOut(){unsub.forEach(u=>u());unsub=[];auM.signOut(auth)},
+      subscribe(uid,cb){
+        unsub.forEach(u=>u());unsub=[];T=[];M=null;gotT=false;gotM=false;emitted=false;
+        const emit=()=>{if(!gotT||!gotM)return;const first=!emitted;emitted=true;
+          cb({timers:T,hasMeta:!!M,settings:M?M.settings:undefined,settingsAt:M?M.settingsAt||0:0,deleted:M?M.deleted||{}:{},lastRemind:M?M.lastRemind||0:0},first)};
+        unsub.push(fsM.onSnapshot(fsM.collection(db,'users',uid,'timers'),s=>{T=s.docs.map(d=>d.data());gotT=true;emit()},e=>FBHooks.error(e.message)));
+        unsub.push(fsM.onSnapshot(fsM.doc(db,'users',uid,'meta','state'),s=>{M=s.exists()?s.data():null;gotM=true;emit()},e=>FBHooks.error(e.message)));
+      },
+      setTimer(uid,t){return fsM.setDoc(fsM.doc(db,'users',uid,'timers',String(t.id)),clean(t))},
+      delTimer(uid,id){return fsM.deleteDoc(fsM.doc(db,'users',uid,'timers',String(id)))},
+      setMeta(uid,m){return fsM.setDoc(fsM.doc(db,'users',uid,'meta','state'),clean(m))}
+    };
+    auM.getRedirectResult(auth).catch(()=>{});
+    auM.onAuthStateChanged(auth,u=>{if(u)FBHooks.signedIn({uid:u.uid,email:u.email||''});else FBHooks.signedOut()});
+  }catch(e){FBHooks.error('không tải được Firebase ('+e.message+')')}
+})();
 </script>
 </body>
 </html>
