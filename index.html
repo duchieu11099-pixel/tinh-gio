@@ -1391,7 +1391,19 @@ function stamp(){S.deleted=S.deleted||{};S.timers.forEach(t=>{const j=sig(t);if(
 function merge(R){
   const del={...(R.deleted||{})};for(const k in S.deleted||{})del[k]=Math.max(del[k]||0,S.deleted[k]);
   for(const k in del)if(del[k]<Date.now()-30*DAY)delete del[k];
-  const m={};[...(R.timers||[]),...S.timers].forEach(t=>{if(!m[t.id]||(t.updated||0)>(m[t.id].updated||0))m[t.id]=t});
+  const byId={};[...(R.timers||[]),...S.timers].forEach(t=>{(byId[t.id]=byId[t.id]||[]).push(t)});
+  const m={};
+  for(const id in byId){
+    const arr=byId[id].slice().sort((a,b)=>(b.updated||0)-(a.updated||0));
+    const w={...arr[0]},o=arr[1];
+    if(o&&Array.isArray(w.checkins)&&Array.isArray(o.checkins)&&w.checkStart===o.checkStart){
+      // Gộp điểm danh theo từng ngày: đã có ✓ ở bất kỳ bản nào thì giữ ✓, bản cũ không xóa được.
+      const n=Math.max(w.checkins.length,o.checkins.length),ci=[];
+      for(let k=0;k<n;k++){const a=w.checkins[k],b=o.checkins[k];ci[k]=(a===true||b===true)?true:(a===false||b===false)?false:null}
+      w.checkins=ci;w.streakDone=ci.every(c=>c!==null);
+    }
+    m[id]=w;
+  }
   const timers=Object.values(m).filter(t=>!(del[t.id]>=(t.updated||0))).sort((a,b)=>b.created-a.created);
   const rs=(R.settingsAt||0)>(S.settingsAt||0);
   return{...S,timers,deleted:del,settings:rs?R.settings:S.settings,settingsAt:Math.max(R.settingsAt||0,S.settingsAt||0),lastRemind:Math.max(R.lastRemind||0,S.lastRemind||0)};
