@@ -862,6 +862,19 @@ function act(id,a,arg){
   else if(a==='editdays'){const n=parseInt(prompt('Số ngày điểm danh cho "'+t.name+'" (1-60):',t.checkins.length));
     if(!(n>=1&&n<=60))return;while(t.checkins.length<n)t.checkins.push(null);t.checkins.length=n;
     t.streakDone=t.checkins.every(c=>c!==null);toast('Đã đổi thành '+n+' ngày')}
+  else if(a==='startdate'){
+    const cd=new Date(t.checkStart),def=cd.getFullYear()+'-'+String(cd.getMonth()+1).padStart(2,'0')+'-'+String(cd.getDate()).padStart(2,'0');
+    const v=prompt('Ngày bắt đầu điểm danh cho "'+t.name+'" (năm-tháng-ngày, vd '+def+'):',def);
+    if(v===null)return;
+    const s=v.trim();let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/),nd=null;
+    if(m)nd=new Date(+m[1],+m[2]-1,+m[3]);else{m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(m)nd=new Date(+m[3],+m[2]-1,+m[1])}
+    if(!nd||isNaN(nd.getTime()))return toast('Ngày không hợp lệ, vd '+def);
+    nd.setHours(0,0,0,0);const ns=nd.getTime();if(ns===t.checkStart)return;
+    // Giữ trạng thái theo đúng ngày lịch: ngày nào đã ✓/✗ thì vẫn nằm nguyên ở ngày đó, chỉ dời khung ngày bắt đầu.
+    const old=t.checkStart,len=t.checkins.length,ci=[];
+    for(let k=0;k<len;k++){const oi=Math.round((ns+k*DAY-old)/DAY);ci[k]=(oi>=0&&oi<len)?t.checkins[oi]:null}
+    t.checkStart=ns;t.checkins=ci;t.streakDone=ci.every(c=>c!==null);
+    toast('📅 Đã dời ngày bắt đầu điểm danh sang '+nd.getDate()+'/'+(nd.getMonth()+1)+'/'+nd.getFullYear())}
   else if(a==='judge')return askResult(t);
   save();render();
 }
@@ -1143,14 +1156,14 @@ function card(t){
     col=t.nuoi?'var(--nuoi)':'var(--ok)';
     badge=t.streakDone?`<span class="badge b-ok">🏆 Hoàn tất ${done}/${t.checkins.length}</span>`:t.nuoi?`<span class="badge b-nuoi">🌱 Nuôi (${done}/${t.checkins.length})</span>`:`<span class="badge b-ok">✓ Thành công (${done}/${t.checkins.length})</span>`;
     extra=`<div class="streak-hdr">
-        <span>Tiến độ điểm danh: <b>${done}/${t.checkins.length} ngày</b> ${missed?`<span style="color:var(--bad)">(Bỏ lỡ ${missed})</span>`:''}</span>
+        <span>Tiến độ điểm danh: <b>${done}/${t.checkins.length} ngày</b> (từ ${new Date(t.checkStart).getDate()}/${new Date(t.checkStart).getMonth()+1}) ${missed?`<span style="color:var(--bad)">(Bỏ lỡ ${missed})</span>`:''}</span>
         <span>${Math.round(done/t.checkins.length*100)}%</span>
       </div>
       <div class="days">${t.checkins.map((c,k)=>{const dt=new Date(t.checkStart+k*DAY);return`<div class="day ${c===true?'d':c===false?'m':''} ${k===i?'t':''} ${dt.getTime()>today()?'f':''}" data-a="day" data-k="${k}" title="Bấm để đổi trạng thái điểm danh">${c===true?'✓':c===false?'✗':'○'}<br>${dt.getDate()}/${dt.getMonth()+1}</div>`}).join('')}</div>`;
     if(i>=0&&t.checkins[i]===null)acts=`<button class="btn ok pulse" data-a="check">✅ Điểm danh hôm nay (ngày ${i+1}/${t.checkins.length})</button>`;
     else if(t.checkStart>today())extra+=`<div class="sub" style="margin-top:6px;color:#fcd34d">⏳ Bắt đầu điểm danh từ ngày mai (${new Date(t.checkStart).getDate()}/${new Date(t.checkStart).getMonth()+1})</div>`;
     else if(!t.streakDone)extra+=`<div class="sub" style="margin-top:6px;color:#6ee7b7">✓ Hôm nay đã điểm danh đầy đủ</div>`;
-    acts+=`<button class="btn gh" data-a="editdays">✎ Số ngày</button><button class="btn gh" data-a="reset">↻ Làm lại</button>`;
+    acts+=`<button class="btn gh" data-a="editdays">✎ Số ngày</button><button class="btn gh" data-a="startdate">📅 Ngày đầu</button><button class="btn gh" data-a="reset">↻ Làm lại</button>`;
   }
   acts+=`<button class="btn gh" data-a="rename">✏️ Tên</button><button class="btn gh" data-a="del">🗑</button>`;
 
