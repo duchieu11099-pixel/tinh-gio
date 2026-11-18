@@ -1121,7 +1121,7 @@ function render(){
 
   const wrapCls=VIEW==='g'?'cards-wrap grid-v':'cards-wrap';
   const html=shown.map(([k,title])=>{
-    const items=q?grp[k].filter(t=>t.name.toLowerCase().includes(q)):grp[k];
+    const items=q?grp[k].filter(t=>t.name.trimStart().toLowerCase().startsWith(q)):grp[k];
     if(!items.length)return '';
     const col=k==='hist'&&FILT==='all'&&!q,open=!col||S.histOpen;
     return `<div class="sec-${k}" id="sec-${k}">
