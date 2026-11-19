@@ -886,6 +886,7 @@ function act(id,a,arg){
     for(let k=0;k<len;k++){const oi=Math.round((ns+k*DAY-old)/DAY);ci[k]=(oi>=0&&oi<len)?t.checkins[oi]:null}
     t.checkStart=ns;t.checkins=ci;t.streakDone=ci.every(c=>c!==null);if(!t.streakDone)delete t.nuoiDuAt;
     toast('📅 Đã dời ngày bắt đầu điểm danh sang '+nd.getDate()+'/'+(nd.getMonth()+1)+'/'+nd.getFullYear())}
+  else if(a==='note'){const n=prompt('Ghi chú cho "'+t.name+'":',t.note||'');if(n===null)return;const v=n.trim();if(v)t.note=v;else delete t.note;toast(v?'📝 Đã lưu ghi chú':'Đã xoá ghi chú')}
   else if(a==='judge')return askResult(t);
   save();render();
 }
@@ -1178,7 +1179,7 @@ function card(t){
     else if(!t.streakDone)extra+=`<div class="sub" style="margin-top:6px;color:#6ee7b7">✓ Hôm nay đã điểm danh đầy đủ</div>`;
     acts+=`<button class="btn gh" data-a="editdays">✎ Số ngày</button><button class="btn gh" data-a="startdate">📅 Ngày đầu</button><button class="btn gh" data-a="reset">↻ Làm lại</button>`;
   }
-  acts+=`<button class="btn gh" data-a="rename">✏️ Tên</button><button class="btn gh" data-a="del">🗑</button>`;
+  acts+=`<button class="btn gh" data-a="note">📝 Ghi chú</button><button class="btn gh" data-a="rename">✏️ Tên</button><button class="btn gh" data-a="del">🗑</button>`;
 
   const pct=pctS(p);
   const cpv=VIEW==="c",cls=cpv?(OPEN.has(t.id)?"cpo":"cp"):"";
@@ -1207,6 +1208,7 @@ function card(t){
       ${endStr?`<span class="mpill">${endStr}</span>`:''}
       ${mileLine(t)}
     </div>
+    ${t.note?`<div class="sub" style="margin-top:6px;color:#fcd34d">📝 ${esc(t.note)}</div>`:''}
     ${extra}
     <div class="acts">${acts}</div>
   </div>`;
