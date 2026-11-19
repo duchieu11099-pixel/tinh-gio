@@ -888,6 +888,7 @@ function act(id,a,arg){
     for(let k=0;k<len;k++){const oi=Math.round((ns+k*DAY-old)/DAY);ci[k]=(oi>=0&&oi<len)?t.checkins[oi]:null}
     t.checkStart=ns;t.checkins=ci;t.streakDone=ci.every(c=>c!==null);if(!t.streakDone)delete t.nuoiDuAt;
     toast('📅 Đã dời ngày bắt đầu điểm danh sang '+nd.getDate()+'/'+(nd.getMonth()+1)+'/'+nd.getFullYear())}
+  else if(a==='mach'){t.machine=(arg==='an'?'an':'check');toast(arg==='an'?'🍽 Đã cho "'+t.name+'" vào Máy ăn':'✅ Đã cho "'+t.name+'" vào Máy checkin')}
   else if(a==='note'){const n=prompt('Ghi chú cho "'+t.name+'":',t.note||'');if(n===null)return;const v=n.trim();if(v)t.note=v;else delete t.note;toast(v?'📝 Đã lưu ghi chú':'Đã xoá ghi chú')}
   else if(a==='judge')return askResult(t);
   save();render();
@@ -1184,7 +1185,7 @@ function card(t){
     else if(!t.streakDone)extra+=`<div class="sub" style="margin-top:6px;color:#6ee7b7">✓ Hôm nay đã điểm danh đầy đủ</div>`;
     acts+=`<button class="btn gh" data-a="editdays">✎ Số ngày</button><button class="btn gh" data-a="startdate">📅 Ngày đầu</button><button class="btn gh" data-a="reset">↻ Làm lại</button>`;
   }
-  acts+=`<button class="btn gh" data-a="note">📝 Ghi chú</button><button class="btn gh" data-a="rename">✏️ Tên</button><button class="btn gh" data-a="del">🗑</button>`;
+  acts+=`<button class="btn ${t.machine==='an'?'ok':'gh'}" data-a="mach" data-k="an">🍽 Máy ăn</button><button class="btn ${t.machine==='check'?'ok':'gh'}" data-a="mach" data-k="check">✅ Máy checkin</button><button class="btn gh" data-a="note">📝 Ghi chú</button><button class="btn gh" data-a="rename">✏️ Tên</button><button class="btn gh" data-a="del">🗑</button>`;
 
   const pct=pctS(p);
   const cpv=VIEW==="c",cls=cpv?(OPEN.has(t.id)?"cpo":"cp"):"";
@@ -1196,7 +1197,7 @@ function card(t){
     <div class="timer">
       <div class="ring">${ring(p,col)}<span data-pct>${pct}</span></div>
       <div class="info">
-        <div class="name-row"><div class="name" title="${esc(t.name)}">${esc(t.name)}</div>${badge}${t.note?'<span style="font-size:16px" title="Có ghi chú">📝</span>':''}</div>
+        <div class="name-row"><div class="name" title="${esc(t.name)}">${esc(t.name)}</div>${badge}${t.machine==='an'?'<span style="font-size:16px" title="Máy ăn">🍽</span>':t.machine==='check'?'<span style="font-size:16px" title="Máy checkin">✅</span>':''}${t.note?'<span style="font-size:16px" title="Có ghi chú">📝</span>':''}</div>
         <div class="time" data-left>${timeTxt(t,left,el)}</div>
         <div class="sub" data-el>${elTxt(t,el)}</div>
       </div>
@@ -1210,6 +1211,7 @@ function card(t){
     <div class="meta-pills">
       <span class="mpill">🎯 Mục tiêu: <b>${fmt(t.dur)}</b></span>
       <span class="mpill">🔁 Vòng ${t.cycle||1} · ✅ ${st.ok} · 🌱 ${st.nuoi} · ✗ ${st.bad} · 🏆 ${st.du||0}</span>
+      ${t.machine==='an'?'<span class="mpill" style="border-color:#f59e0b;color:#fcd34d;font-weight:700">🍽 Máy ăn</span>':t.machine==='check'?'<span class="mpill" style="border-color:#10b981;color:#6ee7b7;font-weight:700">✅ Máy checkin</span>':''}
       ${endStr?`<span class="mpill">${endStr}</span>`:''}
       ${mileLine(t)}
     </div>
