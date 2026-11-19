@@ -824,9 +824,9 @@ function tick(){
         if(mi.reached&&!t.mReached){t.mReached=t.mWarned=true;changed=true;notify('🏁 '+t.name+' đã đạt '+st.mileH+' giờ','Đã chạm cột mốc','mr'+t.id)}}
       if(left<=0){t.state='done';t.doneAt=t.endAt;changed=true;newDone=true;notify('⏰ '+t.name+' đã hết giờ!','Hãy đánh dấu thành công hoặc thất bại','t'+t.id)}
     }
-    if(t.state==='success'){ // đánh dấu ngày bị bỏ lỡ; đủ ngày thì tự sang vòng mới (vòng tuần hoàn)
+    if(t.state==='success'){ // đánh dấu ngày bị bỏ lỡ; đủ ngày thì ghi "đã nuôi đủ" và giữ nguyên trạng thái đó
       t.checkins.forEach((c,i)=>{if(c===null&&t.checkStart+(i+1)*DAY<=today()){t.checkins[i]=false;changed=true}});
-      if(t.checkins.length&&t.checkins.every(c=>c!==null)){startNextCycle(t);changed=true;notify('🔁 '+t.name+' đã hoàn tất một vòng','Đã tự bắt đầu vòng mới','loop'+t.id)}
+      if(t.checkins.length&&t.checkins.every(c=>c!==null)&&!t.nuoiDuAt){t.streakDone=true;t.nuoiDuAt=Date.now();t.stats=t.stats||{ok:0,nuoi:0,bad:0,du:0};t.stats.du=(t.stats.du||0)+1;t.vlog=t.vlog||[];t.vlog.push({k:'du',at:Date.now()});changed=true;notify('🏆 '+t.name+' đã nuôi đủ','Đã điểm danh đủ ngày — giữ nguyên trạng thái, anh tự ấn Reset khi muốn chạy vòng mới','du'+t.id)}
     }
   });
   checkReminder();
@@ -847,7 +847,7 @@ function add(){
   const name=$('nName').value.trim();const ms=((+$('nH').value||0)*3600+(+$('nM').value||0)*60+(+$('nS').value||0))*1000;
   if(!name)return toast('Hãy nhập tên mục tiêu');if(ms<=0)return toast('Thời gian phải > 0');
   const el=parseDur($('nDone').value);if(isNaN(el)||el<0)return toast('Ô "Đã làm được" không hợp lệ (vd 12 hoặc 12:30)');
-  const t={id:uid(),name,dur:ms,state:'running',endAt:Date.now()+ms,created:Date.now(),cycle:1,stats:{ok:0,nuoi:0,bad:0},vlog:[]};
+  const t={id:uid(),name,dur:ms,state:'running',endAt:Date.now()+ms,created:Date.now(),cycle:1,stats:{ok:0,nuoi:0,bad:0,du:0},vlog:[]};
   S.timers.unshift(t);setProgress(t,el);save();$('nName').value='';$('nDone').value='';render();
   toast(el?'Đã thêm '+name+' — đã làm '+pctS(el/ms):'Đã bắt đầu: '+name);if(t.state==='done')askResult(t);
 }
@@ -861,7 +861,7 @@ function act(id,a,arg){
     const d=prompt('Chỉ tiêu (giờ hoặc giờ:phút):',fmtIn(t.dur));if(d===null)return;
     const dur=parseDur(d);if(isNaN(dur)||dur<=0)return toast('Chỉ tiêu không hợp lệ');
     t.dur=dur;setProgress(t,el);toast('Đã cập nhật: '+pctS(el/dur));save();render();if(t.state==='done')askResult(t);return}
-  else if(a==='reset'){unschedule(t);delete t.el;t.later=false;delete t.judgedKey;t.state='running';t.endAt=Date.now()+t.dur;t.warned=false;t.mWarned=t.mReached=false;delete t.result;delete t.checkins;delete t.checkStart;delete t.streakDone;delete t.nuoi;schedule(t);toast('↻ Đã reset "'+t.name+'" — chạy lại từ đầu')}
+  else if(a==='reset'){unschedule(t);if(t.state==='failed'||t.streakDone)t.cycle=(t.cycle||1)+1;delete t.el;t.later=false;delete t.judgedKey;delete t.nuoiDuAt;t.state='running';t.endAt=Date.now()+t.dur;t.warned=false;t.mWarned=t.mReached=false;delete t.result;delete t.checkins;delete t.checkStart;delete t.streakDone;delete t.nuoi;schedule(t);toast('↻ Đã reset "'+t.name+'" — chạy lại từ đầu')}
   else if(a==='del'){if(!confirm('Xoá "'+t.name+'"?'))return;unschedule(t);S.deleted=S.deleted||{};S.deleted[t.id]=Date.now();S.timers=S.timers.filter(x=>x!==t)}
   else if(a==='finish'){t.el=elapsed(t);t.state='done';t.doneAt=Date.now();unschedule(t);save();render();return askResult(t)}
   else if(a==='check'){const i=dayIdx(t);if(i<0||t.checkins[i]!==null)return;t.checkins[i]=true;toast('✅ Đã điểm danh ngày '+(i+1)+'/'+t.checkins.length);
@@ -872,7 +872,7 @@ function act(id,a,arg){
   else if(a==='rename'){const n=prompt('Tên mới:',t.name);if(n===null)return;const v=n.trim();if(!v)return toast('Tên không được để trống');t.name=v;if(t.state==='running'){unschedule(t).then(()=>schedule(t))}save();render();toast('Đã đổi tên: '+v);return}
   else if(a==='editdays'){const n=parseInt(prompt('Số ngày điểm danh cho "'+t.name+'" (1-60):',t.checkins.length));
     if(!(n>=1&&n<=60))return;while(t.checkins.length<n)t.checkins.push(null);t.checkins.length=n;
-    t.streakDone=t.checkins.every(c=>c!==null);toast('Đã đổi thành '+n+' ngày')}
+    t.streakDone=t.checkins.every(c=>c!==null);if(!t.streakDone)delete t.nuoiDuAt;toast('Đã đổi thành '+n+' ngày')}
   else if(a==='startdate'){
     const cd=new Date(t.checkStart),def=cd.getFullYear()+'-'+String(cd.getMonth()+1).padStart(2,'0')+'-'+String(cd.getDate()).padStart(2,'0');
     const v=prompt('Ngày bắt đầu điểm danh cho "'+t.name+'" (năm-tháng-ngày, vd '+def+'):',def);
@@ -884,7 +884,7 @@ function act(id,a,arg){
     // Giữ trạng thái theo đúng ngày lịch: ngày nào đã ✓/✗ thì vẫn nằm nguyên ở ngày đó, chỉ dời khung ngày bắt đầu.
     const old=t.checkStart,len=t.checkins.length,ci=[];
     for(let k=0;k<len;k++){const oi=Math.round((ns+k*DAY-old)/DAY);ci[k]=(oi>=0&&oi<len)?t.checkins[oi]:null}
-    t.checkStart=ns;t.checkins=ci;t.streakDone=ci.every(c=>c!==null);
+    t.checkStart=ns;t.checkins=ci;t.streakDone=ci.every(c=>c!==null);if(!t.streakDone)delete t.nuoiDuAt;
     toast('📅 Đã dời ngày bắt đầu điểm danh sang '+nd.getDate()+'/'+(nd.getMonth()+1)+'/'+nd.getFullYear())}
   else if(a==='judge')return askResult(t);
   save();render();
@@ -920,7 +920,7 @@ function judge(ok){
   const t=judging;if(!t)return;$('resModal').classList.remove('show');t.el=elapsed(t);t.later=false;unschedule(t);
   // Ghi dấu vòng này đã đánh giá (không bao giờ hỏi lại) + cộng thống kê của mục
   t.judgedKey=doneKey(t);
-  t.stats=t.stats||{ok:0,nuoi:0,bad:0};t.vlog=t.vlog||[];
+  t.stats=t.stats||{ok:0,nuoi:0,bad:0,du:0};t.vlog=t.vlog||[];
   const vk=ok==='nuoi'?'nuoi':ok?'ok':'bad';
   t.stats[vk]++;t.vlog.push({k:vk,at:Date.now()});if(t.vlog.length>100)t.vlog=t.vlog.slice(-100);
   if(ok==='nuoi'){t.state='success';t.nuoi=true;t.checkStart=today();t.checkins=Array(14).fill(null);toast('🌱 Bắt đầu nuôi! Hãy điểm danh 14 ngày')}
@@ -1148,7 +1148,7 @@ function card(t){
   const left=remaining(t),el=elapsed(t),p=el/t.dur;
   let badge='',acts='',extra='',col='var(--pri)';
   const mi=mileInfo(t);
-  const st=t.stats||{ok:0,nuoi:0,bad:0};
+  const st=t.stats||{ok:0,nuoi:0,bad:0,du:0};
   if(t.state==='running'){
     badge=mi&&mi.near?'<span class="badge b-mile">🚩 Sắp chạm mốc</span>':'<span class="badge b-run">● Đang chạy</span>';
     col=mi&&mi.near?'var(--mile)':'var(--pri2)';
@@ -1166,12 +1166,13 @@ function card(t){
   }else if(t.state==='success'){
     const i=dayIdx(t),done=t.checkins.filter(c=>c===true).length,missed=t.checkins.filter(c=>c===false).length;
     col=t.nuoi?'var(--nuoi)':'var(--ok)';
-    badge=t.streakDone?`<span class="badge b-ok">🏆 Hoàn tất ${done}/${t.checkins.length}</span>`:t.nuoi?`<span class="badge b-nuoi">🌱 Nuôi (${done}/${t.checkins.length})</span>`:`<span class="badge b-ok">✓ Thành công (${done}/${t.checkins.length})</span>`;
+    badge=t.streakDone?`<span class="badge b-ok">🏆 Đã nuôi đủ ${done}/${t.checkins.length}</span>`:t.nuoi?`<span class="badge b-nuoi">🌱 Nuôi (${done}/${t.checkins.length})</span>`:`<span class="badge b-ok">✓ Thành công (${done}/${t.checkins.length})</span>`;
     extra=`<div class="streak-hdr">
         <span>Tiến độ điểm danh: <b>${done}/${t.checkins.length} ngày</b> (từ ${new Date(t.checkStart).getDate()}/${new Date(t.checkStart).getMonth()+1}) ${missed?`<span style="color:var(--bad)">(Bỏ lỡ ${missed})</span>`:''}</span>
         <span>${Math.round(done/t.checkins.length*100)}%</span>
       </div>
       <div class="days">${t.checkins.map((c,k)=>{const dt=new Date(t.checkStart+k*DAY);return`<div class="day ${c===true?'d':c===false?'m':''} ${k===i?'t':''} ${dt.getTime()>today()?'f':''}" data-a="day" data-k="${k}" title="Bấm để đổi trạng thái điểm danh">${c===true?'✓':c===false?'✗':'○'}<br>${dt.getDate()}/${dt.getMonth()+1}</div>`}).join('')}</div>`;
+    if(t.streakDone)extra+=`<div class="sub" style="margin-top:6px;color:#6ee7b7">🏆 Đã nuôi đủ${t.nuoiDuAt?' từ '+new Date(t.nuoiDuAt).getDate()+'/'+(new Date(t.nuoiDuAt).getMonth()+1):''} — cứ để trạng thái này, ấn ↻ Reset khi muốn chạy vòng mới</div>`;
     if(i>=0&&t.checkins[i]===null)acts=`<button class="btn ok pulse" data-a="check">✅ Điểm danh hôm nay (ngày ${i+1}/${t.checkins.length})</button>`;
     else if(t.checkStart>today())extra+=`<div class="sub" style="margin-top:6px;color:#fcd34d">⏳ Bắt đầu điểm danh từ ngày mai (${new Date(t.checkStart).getDate()}/${new Date(t.checkStart).getMonth()+1})</div>`;
     else if(!t.streakDone)extra+=`<div class="sub" style="margin-top:6px;color:#6ee7b7">✓ Hôm nay đã điểm danh đầy đủ</div>`;
@@ -1202,7 +1203,7 @@ function card(t){
     </div>
     <div class="meta-pills">
       <span class="mpill">🎯 Mục tiêu: <b>${fmt(t.dur)}</b></span>
-      <span class="mpill">🔁 Vòng ${t.cycle||1} · ✅ ${st.ok} · 🌱 ${st.nuoi} · ✗ ${st.bad}</span>
+      <span class="mpill">🔁 Vòng ${t.cycle||1} · ✅ ${st.ok} · 🌱 ${st.nuoi} · ✗ ${st.bad} · 🏆 ${st.du||0}</span>
       ${endStr?`<span class="mpill">${endStr}</span>`:''}
       ${mileLine(t)}
     </div>
