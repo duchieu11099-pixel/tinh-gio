@@ -160,6 +160,8 @@ header{
 .ov-tile{display:flex;flex-direction:column;align-items:center;gap:4px;width:74px;cursor:pointer}
 .ov-ringbox{position:relative;width:70px;height:70px;flex:none}
 .ov-ringbox svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.ov-note{position:absolute;top:-5px;left:-5px;width:23px;height:23px;border-radius:50%;background:#f59e0b;display:grid;place-items:center;font-size:13px;box-shadow:0 1px 5px rgba(0,0,0,.5);z-index:3;border:2px solid #0b1120}
+.notebox{margin-top:8px;font-size:17px;font-weight:700;line-height:1.45;color:#fde68a;background:rgba(245,158,11,.13);border:1.5px solid rgba(245,158,11,.55);border-radius:10px;padding:9px 12px;word-break:break-word}
 .ov-sq{position:absolute;inset:10px;background:#0f1830;border:1px solid var(--border);border-radius:12px;display:grid;place-items:center;font-weight:800;color:#fff;transition:border-color .18s}
 .ov-tile:hover .ov-sq{border-color:var(--pri)}
 .ov-mile-dot{position:absolute;inset:0;pointer-events:none}
@@ -955,6 +957,7 @@ function renderOverview(grp){
   const judgeArr=grp.judge||[];
   const checkArr=grp.check||[];
   const histArr=grp.hist||[];
+  const noteArr=all.filter(t=>t.note);
 
   // Tính điểm danh hôm nay
   const pendToday=checkArr.filter(t=>{const i=dayIdx(t);return i>=0&&t.checkins[i]===null});
@@ -1016,10 +1019,10 @@ function renderOverview(grp){
     {f:'judge',col:'var(--warn)',lbl:'Cần đánh giá',ico:'⚖️',val:judgeArr.length,sub:judgeArr.length?'Đã hoàn thành thời gian!':'Không có mục tồn đọng'},
     {f:'check',pending:true,col:'var(--ok)',lbl:'Điểm danh hôm nay',ico:'📋',val:`${doneToday.length}/${doneToday.length+pendToday.length}`,sub:pendToday.length?`Còn ${pendToday.length} mục cần điểm danh`:(doneToday.length?'Đã xong hôm nay ✓':(checkArr.length?'Bắt đầu từ ngày mai':'Chưa có mục điểm danh'))},
     {f:'check',col:'var(--nuoi)',lbl:'Đang Nuôi & Chuỗi',ico:'🌱',val:checkArr.length,sub:nuoiCnt?`${nuoiCnt} mục Nuôi (14n) · ${checkArr.length-nuoiCnt} mục thường`:'Theo dõi thói quen mỗi ngày'},
-    {f:'hist',col:'#a855f7',lbl:'Tổng giờ & Lịch sử',ico:'🏆',val:totalH+'h',sub:`${reachedMileCnt} đạt mốc · Hoàn tất ${okHist}/${histArr.length} (${winRate})`}
+    {f:'notes',notes:true,col:'#f59e0b',lbl:'Có ghi chú',ico:'📝',val:noteArr.length,sub:noteArr.length?'Ấn để tới mục: '+noteArr.map(t=>t.name).join(', '):'Chưa có mục nào ghi chú'}
   ];
   $('kpiGrid').innerHTML=kpis.map(k=>`
-    <div class="kpi ${FILT===k.f?'active':''}" style="--kpi-col:${k.col}" data-kf="${k.f}" ${k.pending?'data-pending="1"':''}>
+    <div class="kpi ${FILT===k.f?'active':''}" style="--kpi-col:${k.col}" data-kf="${k.f}" ${k.pending?'data-pending="1"':''} ${k.notes?'data-notes="1"':''}>
       <div class="kpi-top"><span class="kpi-lbl">${k.lbl}</span><span class="kpi-ico">${k.ico}</span></div>
       <div class="kpi-val">${k.val}</div>
       <div class="kpi-sub" title="${esc(k.sub)}">${k.sub}</div>
@@ -1057,6 +1060,7 @@ function renderOverview(grp){
           ${ovTileRing(t.id,p,ringCol,milePct)}
           <div class="ov-sq" style="font-size:${num.length>2?14:19}px">${esc(num)}</div>
           ${quickBtn}
+          ${t.note?`<div class="ov-note" title="Có ghi chú: ${esc(t.note)}">📝</div>`:''}
         </div>
         <div class="ov-cap" data-ov-left="${t.id}">${isDone?'⚖️ Chờ đánh giá':(isNear?'🚩 ':'')+'Còn '+fmtShort(left)}</div>
       </div>`;
@@ -1077,6 +1081,7 @@ function renderOverview(grp){
           ${ovTileRing(t.id,tot?done/tot:0,t.nuoi?'var(--nuoi)':'var(--ok)',null)}
           <div class="ov-sq" style="font-size:${num.length>2?14:19}px">${esc(num)}</div>
           ${canCheck?`<button class="ov-qbtn ok pulse" data-ov-act="check" data-id="${t.id}" title="Điểm danh hôm nay">✓</button>`:''}
+          ${t.note?`<div class="ov-note" title="Có ghi chú: ${esc(t.note)}">📝</div>`:''}
         </div>
         <div class="ov-cap${canCheck?' warn':''}">${t.nuoi?'🌱 ':''}${done}/${tot} ngày${t.checkStart>today()?' · từ mai':canCheck?' · chưa ✓':' · ✓'}</div>
       </div>`;
@@ -1191,7 +1196,7 @@ function card(t){
     <div class="timer">
       <div class="ring">${ring(p,col)}<span data-pct>${pct}</span></div>
       <div class="info">
-        <div class="name-row"><div class="name" title="${esc(t.name)}">${esc(t.name)}</div>${badge}</div>
+        <div class="name-row"><div class="name" title="${esc(t.name)}">${esc(t.name)}</div>${badge}${t.note?'<span style="font-size:16px" title="Có ghi chú">📝</span>':''}</div>
         <div class="time" data-left>${timeTxt(t,left,el)}</div>
         <div class="sub" data-el>${elTxt(t,el)}</div>
       </div>
@@ -1208,7 +1213,7 @@ function card(t){
       ${endStr?`<span class="mpill">${endStr}</span>`:''}
       ${mileLine(t)}
     </div>
-    ${t.note?`<div class="sub" style="margin-top:6px;color:#fcd34d">📝 ${esc(t.note)}</div>`:''}
+    ${t.note?`<div class="notebox">📝 ${esc(t.note)}</div>`:''}
     ${extra}
     <div class="acts">${acts}</div>
   </div>`;
@@ -1288,9 +1293,24 @@ $('presetBar').onclick=e=>{
 $('qSearch').oninput=e=>{SEARCH=e.target.value;render()};
 $('sortSel').onchange=e=>{SORT=e.target.value;render()};
 
+let lastNoteJump=null;
 $('kpiGrid').onclick=e=>{
   const box=e.target.closest('[data-kf]');if(!box)return;
   const f=box.dataset.kf;
+  if(box.dataset.notes){
+    const arr=S.timers.filter(t=>t.note);
+    if(!arr.length){toast('Chưa có mục nào có ghi chú');return}
+    const nx=(arr.findIndex(t=>t.id===lastNoteJump)+1)%arr.length;
+    const t=arr[nx];lastNoteJump=t.id;
+    FILT='all';SEARCH='';const q=$('qSearch');if(q)q.value='';
+    OPEN.add(t.id);render();
+    setTimeout(()=>{
+      const el=document.getElementById('card-'+t.id);
+      if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.animate([{boxShadow:'0 0 0 4px #f59e0b'},{boxShadow:'none'}],{duration:1600})}
+      toast('📝 '+t.name+(arr.length>1?' — mục có ghi chú '+(nx+1)+'/'+arr.length+', ấn nữa để tới mục tiếp':''));
+    },40);
+    return;
+  }
   if(box.dataset.pending){
     FILT='check';
     render();
