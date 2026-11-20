@@ -580,6 +580,29 @@ button,.tab,.kpi,.ov-item,.preset-chip{touch-action:manipulation}
     </div>
   </header>
 
+  <!-- Thanh công cụ: Tabs lọc nhóm + Tìm kiếm + Sắp xếp + Chế độ xem -->
+  <div class="toolbar">
+    <div class="tabs" id="tabs"></div>
+    <div class="tools-right">
+      <div class="search-box">
+        <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.8-3.8"/></svg></span>
+        <input id="qSearch" name="tg-search-query" type="search" readonly onfocus="this.removeAttribute('readonly')" autocomplete="one-time-code" data-lpignore="true" data-1p-ignore data-form-type="other" autocorrect="off" spellcheck="false" placeholder="Tìm tên mục...">
+      </div>
+      <select class="sort-sel" id="sortSel" title="Sắp xếp">
+        <option value="def">Sắp xếp: Ưu tiên</option>
+        <option value="left">Gần xong nhất</option>
+        <option value="pct">% Cao → Thấp</option>
+        <option value="new">Mới tạo nhất</option>
+        <option value="name">Tên A → Z</option>
+      </select>
+      <div class="vbar">
+        <div class="tab" id="vGrid" title="Xem dạng lưới 2 cột dễ bao quát">⊞ Lưới</div>
+        <div class="tab" id="vFull" title="Xem chi tiết từng thẻ rộng">▤ Chi tiết</div>
+        <div class="tab" id="vComp" title="Thu gọn thành danh sách 1 dòng">▦ Thu gọn</div>
+      </div>
+    </div>
+  </div>
+
   <!-- Khu vực cảnh báo ưu tiên cần xử lý ngay -->
   <div class="alert-Zone" id="alertZone"></div>
 
@@ -643,29 +666,6 @@ button,.tab,.kpi,.ov-item,.preset-chip{touch-action:manipulation}
         <input id="nDone" name="tg-done-hours" type="text" readonly onfocus="this.removeAttribute('readonly')" autocomplete="one-time-code" data-lpignore="true" data-1p-ignore data-form-type="other" autocorrect="off" spellcheck="false" placeholder="Để trống nếu bắt đầu từ 0" style="width:100%" inputmode="decimal">
       </div>
       <button class="btn" id="addBtn" style="height:44px;padding:0 24px;white-space:nowrap">＋ Thêm & bắt đầu</button>
-    </div>
-  </div>
-
-  <!-- Thanh công cụ: Tabs lọc nhóm + Tìm kiếm + Sắp xếp + Chế độ xem -->
-  <div class="toolbar">
-    <div class="tabs" id="tabs"></div>
-    <div class="tools-right">
-      <div class="search-box">
-        <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.8-3.8"/></svg></span>
-        <input id="qSearch" name="tg-search-query" type="search" readonly onfocus="this.removeAttribute('readonly')" autocomplete="one-time-code" data-lpignore="true" data-1p-ignore data-form-type="other" autocorrect="off" spellcheck="false" placeholder="Tìm tên mục...">
-      </div>
-      <select class="sort-sel" id="sortSel" title="Sắp xếp">
-        <option value="def">Sắp xếp: Ưu tiên</option>
-        <option value="left">Gần xong nhất</option>
-        <option value="pct">% Cao → Thấp</option>
-        <option value="new">Mới tạo nhất</option>
-        <option value="name">Tên A → Z</option>
-      </select>
-      <div class="vbar">
-        <div class="tab" id="vGrid" title="Xem dạng lưới 2 cột dễ bao quát">⊞ Lưới</div>
-        <div class="tab" id="vFull" title="Xem chi tiết từng thẻ rộng">▤ Chi tiết</div>
-        <div class="tab" id="vComp" title="Thu gọn thành danh sách 1 dòng">▦ Thu gọn</div>
-      </div>
     </div>
   </div>
 
@@ -950,8 +950,7 @@ function ring(p,c){const r=35,L=2*Math.PI*r;return`<svg width="82" height="82" v
 let FILT='all', SEARCH='', SORT='def', OV_TAB='all';
 let VIEW=localStorage.getItem('tinhgio_view')||'g';
 let OV_OPEN=localStorage.getItem('tinhgio_ov')!=='0';
-const savedAdd=localStorage.getItem('tinhgio_add');
-let ADD_OPEN=savedAdd!==null?savedAdd!=='0':(window.innerWidth>640||!S.timers.length);
+let ADD_OPEN=false;
 const OPEN=new Set();
 
 const OVC=2*Math.PI*33;
@@ -1283,7 +1282,6 @@ $('vComp').onclick=()=>setView('c');
 
 $('toggleAddBtn').onclick=()=>{
   ADD_OPEN=!ADD_OPEN;
-  localStorage.setItem('tinhgio_add',ADD_OPEN?'1':'0');
   $('addCard').classList.toggle('collapsed',!ADD_OPEN);
   $('toggleAddBtn').textContent=ADD_OPEN?'✕ Ẩn khung thêm':'＋ Thêm mục';
   if(ADD_OPEN)$('nName').focus();
