@@ -853,8 +853,17 @@ function add(){
   S.timers.unshift(t);setProgress(t,el);save();$('nName').value='';$('nDone').value='';render();
   toast(el?'Đã thêm '+name+' — đã làm '+pctS(el/ms):'Đã bắt đầu: '+name);if(t.state==='done')askResult(t);
 }
+function jumpToNextPending(){
+  const pendIds=new Set(S.timers.filter(x=>x.state==='success'&&!x.streakDone&&dayIdx(x)>=0&&x.checkins[dayIdx(x)]===null).map(x=>String(x.id)));
+  if(!pendIds.size)return;
+  const cards=document.querySelectorAll('[id^="card-"]');
+  for(const el of cards){
+    if(pendIds.has(el.id.slice(5))){el.scrollIntoView({behavior:'smooth',block:'center'});el.animate([{boxShadow:'0 0 0 4px var(--ok)'},{boxShadow:'none'}],{duration:1400});return}
+  }
+}
 function act(id,a,arg){
   const t=S.timers.find(x=>x.id===id);if(!t)return;
+  let wantJump=false;
   if(a==='pause'){t.left=t.endAt-Date.now();t.state='paused';unschedule(t)}
   else if(a==='resume'){t.endAt=Date.now()+t.left;t.state='running';schedule(t)}
   else if(a==='prog'){
@@ -867,10 +876,10 @@ function act(id,a,arg){
   else if(a==='del'){if(!confirm('Xoá "'+t.name+'"?'))return;unschedule(t);S.deleted=S.deleted||{};S.deleted[t.id]=Date.now();S.timers=S.timers.filter(x=>x!==t)}
   else if(a==='finish'){t.el=elapsed(t);t.state='done';t.doneAt=Date.now();unschedule(t);save();render();return askResult(t)}
   else if(a==='check'){const i=dayIdx(t);if(i<0||t.checkins[i]!==null)return;t.checkins[i]=true;toast('✅ Đã điểm danh ngày '+(i+1)+'/'+t.checkins.length);
-    t.streakDone=t.checkins.every(c=>c!==null)}
+    t.streakDone=t.checkins.every(c=>c!==null);wantJump=true}
   else if(a==='day'){const k=+arg;if(t.checkStart+k*DAY>today())return toast('Chưa tới ngày này');
     const c=t.checkins[k];t.checkins[k]=c===true?(t.checkStart+k*DAY<today()?false:null):true;
-    t.streakDone=t.checkins.every(c=>c!==null);toast(t.checkins[k]===true?'✅ Đã điểm danh ngày '+(k+1):'Đã bỏ điểm danh ngày '+(k+1))}
+    t.streakDone=t.checkins.every(c=>c!==null);if(t.checkins[k]===true&&k===dayIdx(t))wantJump=true;toast(t.checkins[k]===true?'✅ Đã điểm danh ngày '+(k+1):'Đã bỏ điểm danh ngày '+(k+1))}
   else if(a==='rename'){const n=prompt('Tên mới:',t.name);if(n===null)return;const v=n.trim();if(!v)return toast('Tên không được để trống');t.name=v;if(t.state==='running'){unschedule(t).then(()=>schedule(t))}save();render();toast('Đã đổi tên: '+v);return}
   else if(a==='editdays'){const n=parseInt(prompt('Số ngày điểm danh cho "'+t.name+'" (1-60):',t.checkins.length));
     if(!(n>=1&&n<=60))return;while(t.checkins.length<n)t.checkins.push(null);t.checkins.length=n;
@@ -891,7 +900,7 @@ function act(id,a,arg){
   else if(a==='mach'){t.machine=(arg==='an'?'an':'check');toast(arg==='an'?'🍽 Đã cho "'+t.name+'" vào Máy ăn':'✅ Đã cho "'+t.name+'" vào Máy checkin')}
   else if(a==='note'){const n=prompt('Ghi chú cho "'+t.name+'":',t.note||'');if(n===null)return;const v=n.trim();if(v)t.note=v;else delete t.note;toast(v?'📝 Đã lưu ghi chú':'Đã xoá ghi chú')}
   else if(a==='judge')return askResult(t);
-  save();render();
+  save();render();if(wantJump)setTimeout(jumpToNextPending,60);
 }
 function checkAllToday(){
   let cnt=0;
