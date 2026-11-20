@@ -872,7 +872,7 @@ function act(id,a,arg){
     const d=prompt('Chỉ tiêu (giờ hoặc giờ:phút):',fmtIn(t.dur));if(d===null)return;
     const dur=parseDur(d);if(isNaN(dur)||dur<=0)return toast('Chỉ tiêu không hợp lệ');
     t.dur=dur;setProgress(t,el);toast('Đã cập nhật: '+pctS(el/dur));save();render();if(t.state==='done')askResult(t);return}
-  else if(a==='reset'){unschedule(t);if(t.state==='failed'||t.streakDone)t.cycle=(t.cycle||1)+1;delete t.el;t.later=false;delete t.judgedKey;delete t.nuoiDuAt;t.state='running';t.endAt=Date.now()+t.dur;t.warned=false;t.mWarned=t.mReached=false;delete t.result;delete t.checkins;delete t.checkStart;delete t.streakDone;delete t.nuoi;schedule(t);toast('↻ Đã reset "'+t.name+'" — chạy lại từ đầu')}
+  else if(a==='reset'){if(!confirm('Chạy lại từ đầu "'+t.name+'"? Tiến độ vòng này sẽ làm lại từ đầu.'))return;unschedule(t);if(t.state==='failed'||t.streakDone)t.cycle=(t.cycle||1)+1;delete t.el;t.later=false;delete t.judgedKey;delete t.nuoiDuAt;t.state='running';t.endAt=Date.now()+t.dur;t.warned=false;t.mWarned=t.mReached=false;delete t.result;delete t.checkins;delete t.checkStart;delete t.streakDone;delete t.nuoi;schedule(t);toast('↻ Đã reset "'+t.name+'" — chạy lại từ đầu')}
   else if(a==='del'){if(!confirm('Xoá "'+t.name+'"?'))return;unschedule(t);S.deleted=S.deleted||{};S.deleted[t.id]=Date.now();S.timers=S.timers.filter(x=>x!==t)}
   else if(a==='finish'){t.el=elapsed(t);t.state='done';t.doneAt=Date.now();unschedule(t);save();render();return askResult(t)}
   else if(a==='check'){const i=dayIdx(t);if(i<0||t.checkins[i]!==null)return;t.checkins[i]=true;toast('✅ Đã điểm danh ngày '+(i+1)+'/'+t.checkins.length);
@@ -892,6 +892,7 @@ function act(id,a,arg){
     if(m)nd=new Date(+m[1],+m[2]-1,+m[3]);else{m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(m)nd=new Date(+m[3],+m[2]-1,+m[1])}
     if(!nd||isNaN(nd.getTime()))return toast('Ngày không hợp lệ, vd '+def);
     nd.setHours(0,0,0,0);const ns=nd.getTime();if(ns===t.checkStart)return;
+    if(!confirm('Đổi ngày bắt đầu điểm danh của "'+t.name+'" sang '+nd.getDate()+'/'+(nd.getMonth()+1)+'/'+nd.getFullYear()+'? Các dấu ✓/✗ sẽ giữ nguyên theo đúng ngày lịch.'))return;
     // Giữ trạng thái theo đúng ngày lịch: ngày nào đã ✓/✗ thì vẫn nằm nguyên ở ngày đó, chỉ dời khung ngày bắt đầu.
     const old=t.checkStart,len=t.checkins.length,ci=[];
     for(let k=0;k<len;k++){const oi=Math.round((ns+k*DAY-old)/DAY);ci[k]=(oi>=0&&oi<len)?t.checkins[oi]:null}
